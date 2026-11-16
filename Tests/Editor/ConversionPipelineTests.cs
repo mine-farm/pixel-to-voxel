@@ -170,7 +170,8 @@ namespace MineFarm.PixelToVoxel.Tests
                 Assert.That(window.rootVisualElement.Q<Button>("analyzeButton"), Is.Not.Null);
                 Button generateButton = window.rootVisualElement.Q<Button>("generateButton");
                 Assert.That(generateButton, Is.Not.Null);
-                Assert.That(generateButton.parent.ClassListContains("ptv-footer"), Is.True);
+                Assert.That(generateButton.parent.ClassListContains("ptv-footer__actions"), Is.True);
+                Assert.That(generateButton.parent.parent.ClassListContains("ptv-footer"), Is.True);
                 Assert.That(window.rootVisualElement.Q<IMGUIContainer>("previewContainer"), Is.Not.Null);
                 ObjectField groupField = window.rootVisualElement.Q<ObjectField>("groupField");
                 Assert.That(groupField, Is.Not.Null);

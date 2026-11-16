@@ -14,6 +14,9 @@ namespace MineFarm.PixelToVoxel.Editor
         private const string LayoutPath = "Packages/net.minefarm.pixel-to-voxel/Editor/PixelToVoxelWindow.uxml";
         internal const string StylePath = "Packages/net.minefarm.pixel-to-voxel/Editor/PixelToVoxelWindow.uss";
         private const int PageSize = 30;
+        private const float NarrowWidth = 760f;
+        private const float CompactWidth = 560f;
+        private const float ShortHeight = 650f;
         private static readonly int[] AtlasSizes = { 16, 32, 64, 128, 256, 512, 1024 };
 
         [SerializeField] private ConversionGroup group;
@@ -65,7 +68,7 @@ namespace MineFarm.PixelToVoxel.Editor
 
         private void OnEnable()
         {
-            minSize = new Vector2(720, 560);
+            minSize = new Vector2(420, 420);
             EnsureWindowTitle();
             EditorApplication.projectChanged += OnProjectChanged;
             Undo.undoRedoPerformed += OnUndoRedo;
@@ -99,12 +102,22 @@ namespace MineFarm.PixelToVoxel.Editor
             }
 
             layout.CloneTree(rootVisualElement);
+            rootVisualElement.UnregisterCallback<GeometryChangedEvent>(OnRootGeometryChanged);
+            rootVisualElement.RegisterCallback<GeometryChangedEvent>(OnRootGeometryChanged);
             CacheElements();
             BuildObjectFields();
             BuildPreview();
             WireEvents();
             BindGroup();
             RefreshAll();
+        }
+
+        private void OnRootGeometryChanged(GeometryChangedEvent evt)
+        {
+            Rect rect = evt.newRect;
+            rootVisualElement.EnableInClassList("ptv-window--narrow", rect.width < NarrowWidth);
+            rootVisualElement.EnableInClassList("ptv-window--compact", rect.width < CompactWidth);
+            rootVisualElement.EnableInClassList("ptv-window--short", rect.height < ShortHeight);
         }
 
         private void EnsureWindowTitle()

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3 — 2026-11-17
+
+- 좁은 dock 폭과 낮은 창 높이에 대응하는 narrow, compact, short 반응형 레이아웃 추가.
+- compact 모드에서 footer 액션을 2단으로 재배치해 버튼 잘림 방지.
+
 ## 0.1.2 — 2026-11-17
 
 - 기본 화면을 Inputs, Quick Settings, Analyze/Generate 중심의 단순 레이아웃으로 축소.

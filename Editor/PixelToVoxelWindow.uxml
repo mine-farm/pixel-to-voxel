@@ -108,8 +108,10 @@
             <ui:VisualElement name="previewHost" class="ptv-footer__preview" />
             <ui:VisualElement class="ptv-footer__divider" />
             <ui:Label name="previewStatusLabel" text="Analyze inputs to preview the output." class="ptv-footer__status" />
-            <ui:Button name="analyzeButton" text="Analyze" class="ptv-footer__button ptv-footer__button--primary" />
-            <ui:Button name="generateButton" text="Generate" class="ptv-footer__button" />
+            <ui:VisualElement class="ptv-footer__actions">
+                <ui:Button name="analyzeButton" text="Analyze" class="ptv-footer__button ptv-footer__button--primary" />
+                <ui:Button name="generateButton" text="Generate" class="ptv-footer__button" />
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
