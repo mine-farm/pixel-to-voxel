@@ -1,0 +1,8 @@
+{
+  "name": "MineFarm.PixelToVoxel.Editor.Tests",
+  "rootNamespace": "MineFarm.PixelToVoxel.Tests",
+  "references": ["MineFarm.PixelToVoxel.Core", "MineFarm.PixelToVoxel.Editor"],
+  "includePlatforms": ["Editor"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "autoReferenced": false
+}

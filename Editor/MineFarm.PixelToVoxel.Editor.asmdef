@@ -1,0 +1,6 @@
+{
+  "name": "MineFarm.PixelToVoxel.Editor",
+  "rootNamespace": "MineFarm.PixelToVoxel.Editor",
+  "references": ["MineFarm.PixelToVoxel.Core"],
+  "includePlatforms": ["Editor"]
+}

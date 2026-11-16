@@ -1,0 +1,9 @@
+{
+  "name": "net.minefarm.pixel-to-voxel",
+  "version": "0.1.0",
+  "displayName": "Pixel To Voxel",
+  "description": "Editor-only pixel-art extrusion, batch conversion and shared palette atlases.",
+  "unity": "6000.0",
+  "author": { "name": "mine-farm", "url": "https://github.com/mine-farm" },
+  "keywords": ["voxel", "pixel-art", "editor", "mesh", "atlas"]
+}
