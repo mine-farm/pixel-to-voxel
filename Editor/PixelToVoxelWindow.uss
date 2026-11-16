@@ -76,36 +76,12 @@
 }
 
 .ptv-info-strip {
-    min-height: 31px;
+    min-height: 30px;
     flex-shrink: 0;
-    flex-direction: row;
-    align-items: center;
-    padding-left: 8px;
-    padding-right: 8px;
-    padding-top: 5px;
-    padding-bottom: 5px;
-    background-color: var(--unity-colors-helpbox-background);
-    border-bottom-width: 1px;
-    border-bottom-color: var(--unity-colors-helpbox-border);
-}
-
-.ptv-info-strip__icon {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-    margin-right: 7px;
-    border-radius: 9px;
-    background-color: var(--unity-colors-highlight-background);
-    color: white;
-    -unity-font-style: bold;
-    -unity-text-align: middle-center;
-}
-
-.ptv-info-strip__text {
-    flex-grow: 1;
-    color: var(--unity-colors-helpbox-text);
-    font-size: 11px;
-    white-space: normal;
+    margin-left: 6px;
+    margin-right: 6px;
+    margin-top: 5px;
+    margin-bottom: 5px;
 }
 
 .ptv-split {
@@ -125,26 +101,6 @@
     padding-bottom: 12px;
 }
 
-.ptv-heading {
-    margin-bottom: 8px;
-    padding-left: 2px;
-    padding-right: 2px;
-}
-
-.ptv-heading__title {
-    color: var(--unity-colors-default-text);
-    -unity-font-style: bold;
-    font-size: 15px;
-}
-
-.ptv-heading__description {
-    margin-top: 2px;
-    color: var(--unity-colors-label-text);
-    opacity: 0.72;
-    font-size: 11px;
-    white-space: normal;
-}
-
 .ptv-section {
     margin-bottom: 8px;
     background-color: var(--unity-colors-box-background);
@@ -156,7 +112,6 @@
     border-right-color: var(--unity-colors-default-border);
     border-top-color: var(--unity-colors-default-border);
     border-bottom-color: var(--unity-colors-default-border);
-    border-radius: 3px;
 }
 
 .ptv-section__header {
@@ -299,7 +254,6 @@
     border-right-color: var(--unity-colors-default-border);
     border-top-color: var(--unity-colors-default-border);
     border-bottom-color: var(--unity-colors-default-border);
-    border-radius: 3px;
 }
 
 .ptv-drop-zone--active {
@@ -482,7 +436,6 @@
     border-right-color: var(--unity-colors-default-border);
     border-top-color: var(--unity-colors-default-border);
     border-bottom-color: var(--unity-colors-default-border);
-    border-radius: 2px;
 }
 
 .ptv-analysis-card__top {

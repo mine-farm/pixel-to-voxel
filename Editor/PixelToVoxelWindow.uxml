@@ -10,19 +10,11 @@
             <ui:Label name="workingBadge" text="Working…" class="ptv-working ptv-hidden" />
         </uie:Toolbar>
 
-        <ui:VisualElement name="temporaryNotice" class="ptv-info-strip">
-            <ui:Label text="i" class="ptv-info-strip__icon" />
-            <ui:Label text="Temporary group — save it only if you want to keep these settings and generation history." class="ptv-info-strip__text" />
-        </ui:VisualElement>
+        <ui:HelpBox name="temporaryNotice" text="Temporary group — save it only if you want to keep these settings and generation history." message-type="Info" class="ptv-info-strip" />
 
         <ui:TwoPaneSplitView name="workspaceSplit" fixed-pane-index="0" fixed-pane-initial-dimension="340" orientation="Horizontal" class="ptv-split">
             <ui:ScrollView name="mainScroll" class="ptv-settings-scroll">
                 <ui:VisualElement class="ptv-settings-content">
-                    <ui:VisualElement class="ptv-heading">
-                        <ui:Label text="Conversion Setup" class="ptv-heading__title" />
-                        <ui:Label text="Choose source artwork, configure the generated assets, then run preflight analysis." class="ptv-heading__description" />
-                    </ui:VisualElement>
-
                     <ui:VisualElement class="ptv-section">
                         <ui:VisualElement class="ptv-section__header">
                             <ui:Label text="Source Assets" class="ptv-section__title" />
