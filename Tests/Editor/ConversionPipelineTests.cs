@@ -163,7 +163,12 @@ namespace MineFarm.PixelToVoxel.Tests
             try
             {
                 window.CreateGUI();
+                Assert.That(window.rootVisualElement.Q<Toolbar>(), Is.Not.Null);
+                Assert.That(window.rootVisualElement.Q<TwoPaneSplitView>("workspaceSplit"), Is.Not.Null);
                 Assert.That(window.rootVisualElement.Q<Button>("analyzeButton"), Is.Not.Null);
+                Button generateButton = window.rootVisualElement.Q<Button>("generateButton");
+                Assert.That(generateButton, Is.Not.Null);
+                Assert.That(generateButton.parent.ClassListContains("ptv-actionbar"), Is.True);
                 Assert.That(window.rootVisualElement.Q<IMGUIContainer>("previewContainer"), Is.Not.Null);
                 ObjectField groupField = window.rootVisualElement.Q<ObjectField>("groupField");
                 Assert.That(groupField, Is.Not.Null);

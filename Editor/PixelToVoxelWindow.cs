@@ -64,7 +64,7 @@ namespace MineFarm.PixelToVoxel.Editor
 
         private void OnEnable()
         {
-            minSize = new Vector2(540, 600);
+            minSize = new Vector2(640, 520);
             EnsureWindowTitle();
             EditorApplication.projectChanged += OnProjectChanged;
             Undo.undoRedoPerformed += OnUndoRedo;
@@ -230,16 +230,15 @@ namespace MineFarm.PixelToVoxel.Editor
 
         private void BuildObjectFields()
         {
-            groupField = new ObjectField("Conversion Group")
+            groupField = new ObjectField
             {
                 name = "groupField",
                 objectType = typeof(ConversionGroup),
                 allowSceneObjects = false
             };
-            groupField.AddToClassList("ptv-field");
             Required<VisualElement>("groupFieldSlot").Add(groupField);
 
-            presetField = new ObjectField("Settings Preset")
+            presetField = new ObjectField("Preset")
             {
                 name = "presetField",
                 objectType = typeof(ConversionPreset),
@@ -309,7 +308,7 @@ namespace MineFarm.PixelToVoxel.Editor
             serializedGroup = new SerializedObject(group);
             serializedGroup.Update();
 
-            PropertyField sources = AddPropertyField(sourcesFieldSlot, "sources", "Source Assets");
+            PropertyField sources = AddPropertyField(sourcesFieldSlot, "sources", "Assets");
             sources.AddToClassList("ptv-sources-field");
 
             AddPropertyField(geometryFields, "settings.geometry.pixelStep", "Pixel Step");
@@ -430,8 +429,8 @@ namespace MineFarm.PixelToVoxel.Editor
             groupField.SetValueWithoutNotify(group);
             presetField.SetValueWithoutNotify(preset);
             bool temporary = IsTemporaryGroup;
-            groupPrimaryButton.text = temporary ? "Save Conversion Group…" : "New Conversion Group…";
-            temporaryButton.text = temporary ? "Reset Temporary Group" : "Use Temporary Group";
+            groupPrimaryButton.text = temporary ? "Save Group…" : "New Group…";
+            temporaryButton.text = temporary ? "Reset" : "Use Temporary";
             temporaryNotice.EnableInClassList("ptv-hidden", !temporary);
             workingBadge.EnableInClassList("ptv-hidden", !working);
             groupPrimaryButton.SetEnabled(!working);
@@ -712,7 +711,7 @@ namespace MineFarm.PixelToVoxel.Editor
         private void RefreshPreview()
         {
             if (previewStatusLabel == null) return;
-            previewStatusLabel.text = string.IsNullOrEmpty(previewLabel) ? "NO SELECTION" : previewLabel.ToUpperInvariant();
+            previewStatusLabel.text = string.IsNullOrEmpty(previewLabel) ? "No selection" : previewLabel;
             previewContainer?.MarkDirtyRepaint();
         }
 
