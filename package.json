@@ -1,6 +1,6 @@
 {
   "name": "net.minefarm.pixel-to-voxel",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "displayName": "Pixel To Voxel",
   "description": "Editor-only pixel-art extrusion, batch conversion and shared palette atlases.",
   "unity": "6000.0",

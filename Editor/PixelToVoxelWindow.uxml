@@ -1,110 +1,115 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="True">
     <ui:Style src="PixelToVoxelWindow.uss" />
     <ui:VisualElement name="windowRoot" class="ptv-window">
-        <uie:Toolbar class="ptv-toolbar">
-            <ui:Label text="Conversion Group" class="ptv-toolbar__label" />
-            <ui:VisualElement name="groupFieldSlot" class="ptv-toolbar__field" />
-            <ui:VisualElement class="ptv-toolbar__spacer" />
-            <uie:ToolbarButton name="groupPrimaryButton" text="Save Group…" class="ptv-toolbar__button" />
-            <uie:ToolbarButton name="temporaryButton" text="Reset" class="ptv-toolbar__button" />
+        <ui:VisualElement class="ptv-header">
+            <ui:Image name="headerIcon" class="ptv-header__icon" />
+            <ui:Label text="Pixel To Voxel" class="ptv-header__title" />
+            <ui:VisualElement class="ptv-header__divider" />
+            <ui:Label text="PNG / Sprite  →  Voxel prefab" class="ptv-header__subtitle" />
+            <ui:VisualElement class="ptv-header__spacer" />
             <ui:Label name="workingBadge" text="Working…" class="ptv-working ptv-hidden" />
-        </uie:Toolbar>
+        </ui:VisualElement>
 
-        <ui:HelpBox name="temporaryNotice" text="Temporary group — save it only if you want to keep these settings and generation history." message-type="Info" class="ptv-info-strip" />
-
-        <ui:TwoPaneSplitView name="workspaceSplit" fixed-pane-index="0" fixed-pane-initial-dimension="340" orientation="Horizontal" class="ptv-split">
-            <ui:ScrollView name="mainScroll" class="ptv-settings-scroll">
-                <ui:VisualElement class="ptv-settings-content">
-                    <ui:VisualElement class="ptv-section">
-                        <ui:VisualElement class="ptv-section__header">
-                            <ui:Label text="Source Assets" class="ptv-section__title" />
-                            <ui:Label text="PNG · Sprite · Folder" class="ptv-section__meta" />
+        <ui:ScrollView name="mainScroll" class="ptv-scroll">
+            <ui:VisualElement class="ptv-content">
+                <ui:VisualElement class="ptv-card">
+                    <ui:VisualElement class="ptv-card__header">
+                        <ui:Label text="Inputs" class="ptv-card__title" />
+                        <ui:Label name="inputCountLabel" text="0 inputs" class="ptv-pill" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="ptv-card__body">
+                        <ui:VisualElement name="sourcesFieldSlot" class="ptv-fields ptv-source-list ptv-hidden" />
+                        <ui:VisualElement name="dropZone" class="ptv-drop-zone">
+                            <ui:Label text="Drop PNGs, Sprites, or folders here" class="ptv-drop-zone__title" />
+                            <ui:Label text="Project assets only" class="ptv-drop-zone__hint" />
                         </ui:VisualElement>
-                        <ui:VisualElement class="ptv-section__body">
-                            <ui:VisualElement name="sourcesFieldSlot" class="ptv-fields" />
-                            <ui:VisualElement class="ptv-button-row">
-                                <ui:Button name="addSelectionButton" text="Add Selection" />
-                                <ui:Button name="clearInputsButton" text="Clear" />
-                            </ui:VisualElement>
-                            <ui:VisualElement name="dropZone" class="ptv-drop-zone">
-                                <ui:Label text="Drag project assets here" class="ptv-drop-zone__title" />
-                                <ui:Label text="Textures, sprites, and project folders are supported." class="ptv-drop-zone__hint" />
-                            </ui:VisualElement>
+                        <ui:VisualElement class="ptv-button-row">
+                            <ui:Button name="addSelectionButton" text="Add Selection" />
+                            <ui:Button name="clearInputsButton" text="Clear" />
                         </ui:VisualElement>
                     </ui:VisualElement>
+                </ui:VisualElement>
 
-                    <ui:VisualElement class="ptv-section">
-                        <ui:VisualElement class="ptv-section__header">
-                            <ui:Label text="Conversion Settings" class="ptv-section__title" />
-                        </ui:VisualElement>
-                        <ui:VisualElement class="ptv-section__body">
-                            <ui:VisualElement name="presetFieldSlot" class="ptv-fields" />
-                            <ui:VisualElement class="ptv-button-row">
-                                <ui:Button name="applyPresetButton" text="Apply Preset" />
-                                <ui:Button name="savePresetButton" text="Save Preset…" />
+                <ui:VisualElement class="ptv-card">
+                    <ui:VisualElement class="ptv-card__header">
+                        <ui:Label text="Quick Settings" class="ptv-card__title" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="ptv-card__body">
+                        <ui:VisualElement name="quickFields" class="ptv-fields" />
+
+                        <ui:Foldout name="advancedFoldout" text="Advanced" value="false" class="ptv-advanced">
+                            <ui:VisualElement class="ptv-advanced__section">
+                                <ui:Label text="Conversion Group" class="ptv-subheading" />
+                                <ui:VisualElement name="groupFieldSlot" class="ptv-fields" />
+                                <ui:VisualElement class="ptv-button-row ptv-button-row--compact">
+                                    <ui:Button name="groupPrimaryButton" text="Save Group…" />
+                                    <ui:Button name="temporaryButton" text="Reset" />
+                                </ui:VisualElement>
+                                <ui:VisualElement name="temporaryNotice" class="ptv-inline-notice">
+                                    <ui:Label text="Temporary group — save it to keep settings and history." />
+                                </ui:VisualElement>
                             </ui:VisualElement>
 
-                            <ui:Foldout text="Geometry" value="true" class="ptv-settings-foldout">
+                            <ui:VisualElement class="ptv-advanced__section">
+                                <ui:Label text="Preset" class="ptv-subheading" />
+                                <ui:VisualElement name="presetFieldSlot" class="ptv-fields" />
+                                <ui:VisualElement class="ptv-button-row ptv-button-row--compact">
+                                    <ui:Button name="applyPresetButton" text="Apply Preset" />
+                                    <ui:Button name="savePresetButton" text="Save Preset…" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+
+                            <ui:Foldout text="Geometry" value="false" class="ptv-detail-foldout">
                                 <ui:VisualElement name="geometryFields" class="ptv-fields" />
                             </ui:Foldout>
-                            <ui:Foldout text="Output" value="true" class="ptv-settings-foldout">
+                            <ui:Foldout text="Output Details" value="false" class="ptv-detail-foldout">
                                 <ui:VisualElement name="outputFields" class="ptv-fields" />
-                                <ui:Label name="outputPathLabel" text="Output path is assigned after the first generation." class="ptv-output-path" />
+                                <ui:Label name="outputPathLabel" class="ptv-inline-help" />
                             </ui:Foldout>
-                            <ui:Foldout text="Safety Limits" value="false" class="ptv-settings-foldout">
+                            <ui:Foldout text="Safety Limits" value="false" class="ptv-detail-foldout">
                                 <ui:VisualElement name="safetyFields" class="ptv-fields" />
-                                <ui:Label text="Warnings do not block generation. Review large inputs during preflight." class="ptv-inline-help" />
                             </ui:Foldout>
-                        </ui:VisualElement>
+
+                            <ui:VisualElement name="preflightSection" class="ptv-results ptv-hidden">
+                                <ui:VisualElement class="ptv-results__header">
+                                    <ui:VisualElement class="ptv-results__heading">
+                                        <ui:Label text="Preflight Results" class="ptv-subheading" />
+                                        <ui:Label name="analysisSummaryLabel" class="ptv-results__summary" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="ptv-button-row ptv-button-row--compact">
+                                        <ui:Button name="includeAllButton" text="Include Valid" />
+                                        <ui:Button name="excludeWarningsButton" text="Exclude Warnings" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                                <ui:VisualElement name="pagination" class="ptv-pagination ptv-hidden">
+                                    <ui:Button name="previousPageButton" text="Previous" />
+                                    <ui:Label name="pageLabel" text="1 / 1" class="ptv-pagination__label" />
+                                    <ui:Button name="nextPageButton" text="Next" />
+                                </ui:VisualElement>
+                                <ui:VisualElement name="analysisList" class="ptv-analysis-list" />
+                            </ui:VisualElement>
+
+                            <ui:Foldout name="historyFoldout" text="Generation History" value="false" class="ptv-detail-foldout ptv-history">
+                                <ui:Label name="historySummaryLabel" class="ptv-history__summary" />
+                                <ui:VisualElement name="historyList" class="ptv-history-list" />
+                                <ui:Button name="selectGroupButton" text="Select Group Asset" />
+                            </ui:Foldout>
+                        </ui:Foldout>
                     </ui:VisualElement>
-
-                    <ui:VisualElement name="preflightSection" class="ptv-section ptv-hidden">
-                        <ui:VisualElement class="ptv-section__header ptv-section__header--wrap">
-                            <ui:VisualElement class="ptv-section__heading">
-                                <ui:Label text="Preflight Results" class="ptv-section__title" />
-                                <ui:Label name="analysisSummaryLabel" class="ptv-section__summary" />
-                            </ui:VisualElement>
-                            <ui:VisualElement class="ptv-button-row ptv-button-row--header">
-                                <ui:Button name="includeAllButton" text="Include Valid" />
-                                <ui:Button name="excludeWarningsButton" text="Exclude Warnings" />
-                            </ui:VisualElement>
-                        </ui:VisualElement>
-                        <ui:VisualElement class="ptv-section__body">
-                            <ui:VisualElement name="pagination" class="ptv-pagination ptv-hidden">
-                                <ui:Button name="previousPageButton" text="Previous" />
-                                <ui:Label name="pageLabel" text="1 / 1" class="ptv-pagination__label" />
-                                <ui:Button name="nextPageButton" text="Next" />
-                            </ui:VisualElement>
-                            <ui:VisualElement name="analysisList" class="ptv-analysis-list" />
-                        </ui:VisualElement>
-                    </ui:VisualElement>
-
-                    <ui:Foldout name="historyFoldout" text="Generation History" value="false" class="ptv-section ptv-history">
-                        <ui:Label name="historySummaryLabel" class="ptv-history__summary" />
-                        <ui:VisualElement name="historyList" class="ptv-history-list" />
-                        <ui:Button name="selectGroupButton" text="Select Group Asset" />
-                    </ui:Foldout>
                 </ui:VisualElement>
-            </ui:ScrollView>
-
-            <ui:VisualElement class="ptv-preview-pane">
-                <ui:VisualElement class="ptv-pane-header">
-                    <ui:Label text="Preview" class="ptv-pane-header__title" />
-                    <ui:Label name="previewStatusLabel" text="No selection" class="ptv-pane-header__status" />
-                </ui:VisualElement>
-                <ui:VisualElement name="previewHost" class="ptv-preview-host" />
             </ui:VisualElement>
-        </ui:TwoPaneSplitView>
+        </ui:ScrollView>
 
         <ui:VisualElement name="noticePanel" class="ptv-notice-bar ptv-hidden">
             <ui:Label name="noticeLabel" class="ptv-notice-bar__text" />
         </ui:VisualElement>
 
-        <ui:VisualElement class="ptv-actionbar">
-            <ui:Label text="Analyze after changing sources or settings." class="ptv-actionbar__hint" />
-            <ui:VisualElement class="ptv-actionbar__spacer" />
-            <ui:Button name="analyzeButton" text="Analyze Inputs" class="ptv-actionbar__button" />
-            <ui:Button name="generateButton" text="Generate Selected" class="ptv-actionbar__button ptv-actionbar__button--primary" />
+        <ui:VisualElement class="ptv-footer">
+            <ui:VisualElement name="previewHost" class="ptv-footer__preview" />
+            <ui:VisualElement class="ptv-footer__divider" />
+            <ui:Label name="previewStatusLabel" text="Analyze inputs to preview the output." class="ptv-footer__status" />
+            <ui:Button name="analyzeButton" text="Analyze" class="ptv-footer__button ptv-footer__button--primary" />
+            <ui:Button name="generateButton" text="Generate" class="ptv-footer__button" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

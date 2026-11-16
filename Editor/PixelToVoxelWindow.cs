@@ -35,12 +35,13 @@ namespace MineFarm.PixelToVoxel.Editor
         private PopupField<int> atlasSizeField;
         private VisualElement temporaryNotice, noticePanel, preflightSection, pagination, analysisList;
         private VisualElement historyList, dropZone, previewHost, sourcesFieldSlot, presetFieldSlot;
-        private VisualElement geometryFields, outputFields, safetyFields;
+        private VisualElement quickFields, geometryFields, outputFields, safetyFields;
         private Button groupPrimaryButton, temporaryButton, addSelectionButton, clearInputsButton;
         private Button applyPresetButton, savePresetButton, analyzeButton, generateButton;
         private Button includeAllButton, excludeWarningsButton, previousPageButton, nextPageButton, selectGroupButton;
-        private Label workingBadge, noticeLabel, outputPathLabel, previewStatusLabel;
+        private Label workingBadge, noticeLabel, outputPathLabel, previewStatusLabel, inputCountLabel;
         private Label analysisSummaryLabel, pageLabel, historySummaryLabel;
+        private Image headerIcon;
         private Foldout historyFoldout;
         private IMGUIContainer previewContainer;
 
@@ -64,7 +65,7 @@ namespace MineFarm.PixelToVoxel.Editor
 
         private void OnEnable()
         {
-            minSize = new Vector2(640, 520);
+            minSize = new Vector2(720, 560);
             EnsureWindowTitle();
             EditorApplication.projectChanged += OnProjectChanged;
             Undo.undoRedoPerformed += OnUndoRedo;
@@ -193,6 +194,7 @@ namespace MineFarm.PixelToVoxel.Editor
             previewHost = Required<VisualElement>("previewHost");
             sourcesFieldSlot = Required<VisualElement>("sourcesFieldSlot");
             presetFieldSlot = Required<VisualElement>("presetFieldSlot");
+            quickFields = Required<VisualElement>("quickFields");
             geometryFields = Required<VisualElement>("geometryFields");
             outputFields = Required<VisualElement>("outputFields");
             safetyFields = Required<VisualElement>("safetyFields");
@@ -215,10 +217,12 @@ namespace MineFarm.PixelToVoxel.Editor
             noticeLabel = Required<Label>("noticeLabel");
             outputPathLabel = Required<Label>("outputPathLabel");
             previewStatusLabel = Required<Label>("previewStatusLabel");
+            inputCountLabel = Required<Label>("inputCountLabel");
             analysisSummaryLabel = Required<Label>("analysisSummaryLabel");
             pageLabel = Required<Label>("pageLabel");
             historySummaryLabel = Required<Label>("historySummaryLabel");
             historyFoldout = Required<Foldout>("historyFoldout");
+            headerIcon = Required<Image>("headerIcon");
         }
 
         private T Required<T>(string name) where T : VisualElement
@@ -230,6 +234,9 @@ namespace MineFarm.PixelToVoxel.Editor
 
         private void BuildObjectFields()
         {
+            headerIcon.image = windowIcon;
+            headerIcon.scaleMode = ScaleMode.ScaleToFit;
+
             groupField = new ObjectField
             {
                 name = "groupField",
@@ -297,6 +304,7 @@ namespace MineFarm.PixelToVoxel.Editor
         private void BindGroup()
         {
             sourcesFieldSlot?.Clear();
+            quickFields?.Clear();
             geometryFields?.Clear();
             outputFields?.Clear();
             safetyFields?.Clear();
@@ -320,12 +328,13 @@ namespace MineFarm.PixelToVoxel.Editor
             AddPropertyField(geometryFields, "settings.geometry.flipY", "Flip Y");
             AddPropertyField(geometryFields, "settings.geometry.pivot", "Pivot");
 
-            AddPropertyField(outputFields, "settings.facing", "Facing");
-            AddPropertyField(outputFields, "settings.collider", "Collider");
+            AddPropertyField(quickFields, "settings.facing", "Facing");
+            AddPropertyField(quickFields, "settings.collider", "Collider");
+            lockedAfterGeneration.Add(AddPropertyField(quickFields, "settings.sharedAtlas", "Shared Atlas"));
+            lockedAfterGeneration.Add(AddPropertyField(quickFields, "outputRoot", "Output Root"));
+
             AddPropertyField(outputFields, "settings.existingOutputs", "Existing Outputs");
-            lockedAfterGeneration.Add(AddPropertyField(outputFields, "settings.sharedAtlas", "Shared Atlas"));
             AddAtlasSizeField();
-            lockedAfterGeneration.Add(AddPropertyField(outputFields, "outputRoot", "Output Root"));
 
             AddPropertyField(safetyFields, "settings.warningDimension", "Dimension Warning");
             AddPropertyField(safetyFields, "settings.warningSolidPixels", "Solid Pixel Warning");
@@ -429,6 +438,9 @@ namespace MineFarm.PixelToVoxel.Editor
             groupField.SetValueWithoutNotify(group);
             presetField.SetValueWithoutNotify(preset);
             bool temporary = IsTemporaryGroup;
+            int inputCount = group ? group.sources.Count : 0;
+            inputCountLabel.text = inputCount == 1 ? "1 input" : $"{inputCount} inputs";
+            sourcesFieldSlot.EnableInClassList("ptv-hidden", inputCount == 0);
             groupPrimaryButton.text = temporary ? "Save Group…" : "New Group…";
             temporaryButton.text = temporary ? "Reset" : "Use Temporary";
             temporaryNotice.EnableInClassList("ptv-hidden", !temporary);
@@ -553,6 +565,8 @@ namespace MineFarm.PixelToVoxel.Editor
                 analyses = ConversionPipeline.Analyze(group);
                 analyzedFingerprint = Fingerprint();
                 sourceFingerprint = InputFingerprint();
+                SourceAnalysis firstPreview = analyses.FirstOrDefault(analysis => analysis.Grid != null);
+                if (firstPreview != null) PreviewAnalysis(firstPreview);
                 int warnings = analyses.Count(a => !string.IsNullOrEmpty(a.Warning));
                 int errors = analyses.Count(a => !string.IsNullOrEmpty(a.Error));
                 SetNotice($"Preflight complete  ·  {analyses.Count} inputs  ·  {warnings} warnings  ·  {errors} errors", NoticeTone.Info);
@@ -569,6 +583,7 @@ namespace MineFarm.PixelToVoxel.Editor
             {
                 working = false;
                 RefreshAnalyses();
+                RefreshPreview();
                 RefreshState();
             }
         }
@@ -702,16 +717,31 @@ namespace MineFarm.PixelToVoxel.Editor
 
         private void DrawPreview()
         {
-            if (preview == null) preview = new VoxelPreview();
             Rect content = previewContainer.contentRect;
             var rect = new Rect(0, 0, content.width, content.height);
+            if (preview == null && string.IsNullOrEmpty(previewLabel))
+            {
+                const float iconSize = 42f;
+                var iconRect = new Rect((rect.width - iconSize) * 0.5f, (rect.height - iconSize) * 0.5f, iconSize, iconSize);
+                if (windowIcon) GUI.DrawTexture(iconRect, windowIcon, ScaleMode.ScaleToFit, true);
+                return;
+            }
+
+            if (preview == null) preview = new VoxelPreview();
             preview.Draw(rect, () => previewContainer.MarkDirtyRepaint());
         }
 
         private void RefreshPreview()
         {
             if (previewStatusLabel == null) return;
-            previewStatusLabel.text = string.IsNullOrEmpty(previewLabel) ? "No selection" : previewLabel;
+            if (working) previewStatusLabel.text = "Analyzing inputs…";
+            else if (!string.IsNullOrEmpty(previewLabel)) previewStatusLabel.text = previewLabel;
+            else if (analyses == null) previewStatusLabel.text = "Analyze inputs to preview the output.";
+            else
+            {
+                int ready = analyses.Count(analysis => analysis.Grid != null && string.IsNullOrEmpty(analysis.Error));
+                previewStatusLabel.text = ready == 1 ? "1 input is ready to generate." : $"{ready} inputs are ready to generate.";
+            }
             previewContainer?.MarkDirtyRepaint();
         }
 
