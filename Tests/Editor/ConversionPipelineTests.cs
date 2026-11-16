@@ -45,7 +45,8 @@ namespace MineFarm.PixelToVoxel.Tests
             GenerationRecord record = group.history.Single();
             Assert.That(record.mesh.vertexCount, Is.EqualTo(40));
             Assert.That(record.prefab.GetComponent<MeshFilter>().sharedMesh, Is.SameAs(record.mesh));
-            Assert.That(record.prefab.GetComponent<MeshRenderer>().sharedMaterial, Is.SameAs(group.sharedMaterial));
+            Assert.That(Identity(record.prefab.GetComponent<MeshRenderer>().sharedMaterial),
+                Is.EqualTo(Identity(group.sharedMaterial)));
             Assert.That(group.sharedAtlas.filterMode, Is.EqualTo(FilterMode.Point));
             Assert.That(group.sharedAtlas.mipmapCount, Is.EqualTo(1));
             Assert.That(record.prefab.GetComponentsInChildren<Transform>().Length, Is.EqualTo(1));

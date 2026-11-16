@@ -277,8 +277,8 @@ namespace MineFarm.PixelToVoxel.Editor
             try
             {
                 root = loaded ? PrefabUtility.LoadPrefabContents(AssetDatabase.GetAssetPath(record.prefab)) : new GameObject(a.Label);
-                MeshFilter filter = root.GetComponent<MeshFilter>() ?? root.AddComponent<MeshFilter>();
-                MeshRenderer renderer = root.GetComponent<MeshRenderer>() ?? root.AddComponent<MeshRenderer>();
+                MeshFilter filter = GetOrAddComponent<MeshFilter>(root);
+                MeshRenderer renderer = GetOrAddComponent<MeshRenderer>(root);
                 filter.sharedMesh = record.mesh; renderer.sharedMaterial = record.material;
                 ConfigureCollider(root, record.mesh, group.settings.collider);
                 GameObject saved = PrefabUtility.SaveAsPrefabAsset(root, record.outputFolder + "/" + record.outputName + ".prefab", out bool success);
@@ -302,14 +302,20 @@ namespace MineFarm.PixelToVoxel.Editor
             foreach (MeshCollider c in root.GetComponents<MeshCollider>()) if (mode != ColliderMode.Mesh) Object.DestroyImmediate(c);
             if (mode == ColliderMode.Box)
             {
-                BoxCollider c = root.GetComponent<BoxCollider>() ?? root.AddComponent<BoxCollider>();
+                BoxCollider c = GetOrAddComponent<BoxCollider>(root);
                 c.center = mesh.bounds.center; c.size = mesh.bounds.size;
             }
             if (mode == ColliderMode.Mesh)
             {
-                MeshCollider c = root.GetComponent<MeshCollider>() ?? root.AddComponent<MeshCollider>();
+                MeshCollider c = GetOrAddComponent<MeshCollider>(root);
                 c.sharedMesh = null; c.sharedMesh = mesh; c.convex = false;
             }
+        }
+
+        private static T GetOrAddComponent<T>(GameObject root) where T : Component
+        {
+            T component = root.GetComponent<T>();
+            return component ? component : root.AddComponent<T>();
         }
 
         private static string SafeName(string label)
