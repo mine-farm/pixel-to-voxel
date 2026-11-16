@@ -24,6 +24,7 @@ namespace MineFarm.PixelToVoxel.Editor
     [CreateAssetMenu(menuName = "Pixel To Voxel/Conversion Group", fileName = "VoxelGroup")]
     public sealed class ConversionGroup : ScriptableObject
     {
+        [SerializeField, HideInInspector] private string temporaryGroupGuid;
         public List<UnityEngine.Object> sources = new List<UnityEngine.Object>();
         public ConversionSettings settings = new ConversionSettings();
         public string outputRoot = "Assets/Generated/PixelToVoxel";
@@ -36,5 +37,11 @@ namespace MineFarm.PixelToVoxel.Editor
         [HideInInspector] public List<int> paletteColors = new List<int>();
         [HideInInspector] public List<GenerationRecord> history = new List<GenerationRecord>();
         [HideInInspector] public string lastSummary;
+
+        internal string GetTemporaryGroupGuid()
+        {
+            if (string.IsNullOrEmpty(temporaryGroupGuid)) temporaryGroupGuid = Guid.NewGuid().ToString("N");
+            return temporaryGroupGuid;
+        }
     }
 }

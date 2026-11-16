@@ -47,7 +47,7 @@ namespace MineFarm.PixelToVoxel.Editor
 
         public static void Validate(ConversionGroup group)
         {
-            if (!group || string.IsNullOrEmpty(AssetDatabase.GetAssetPath(group))) throw new ArgumentException("Save a Conversion Group asset first.");
+            if (!group) throw new ArgumentException("Conversion Group is missing.");
             group.settings.Validate();
             string root = group.outputRoot;
             if (string.IsNullOrEmpty(root) || !(root == "Assets" || root.StartsWith("Assets/", StringComparison.Ordinal))
@@ -56,7 +56,7 @@ namespace MineFarm.PixelToVoxel.Editor
                 throw new ArgumentException("Output must be a project folder under Assets, without trailing slash or relative segments.");
             if (!string.IsNullOrEmpty(group.generatedRoot))
             {
-                if (group.generatedGroupGuid != AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(group)))
+                if (group.generatedGroupGuid != GroupIdentity(group))
                     throw new ArgumentException("This group is a copy of a generated group. Create a new group and apply a settings preset to avoid modifying the original outputs.");
                 if (group.generatedSharedAtlas != group.settings.sharedAtlas || group.generatedAtlasSize != group.settings.atlasSize)
                     throw new ArgumentException("Atlas mode and size are fixed after generation to preserve UVs. Create a new group to change them.");
@@ -111,7 +111,7 @@ namespace MineFarm.PixelToVoxel.Editor
                     group.paletteColors = shared.Colors.Select(c => unchecked((int)c)).ToList();
                 }
                 group.generatedRoot = root;
-                group.generatedGroupGuid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(group));
+                group.generatedGroupGuid = GroupIdentity(group);
                 group.generatedSharedAtlas = group.settings.sharedAtlas;
                 group.generatedAtlasSize = group.settings.atlasSize;
                 EditorUtility.SetDirty(group);
@@ -148,8 +148,13 @@ namespace MineFarm.PixelToVoxel.Editor
         private static string GetRoot(ConversionGroup group)
         {
             if (!string.IsNullOrEmpty(group.generatedRoot)) return group.generatedRoot;
-            string guid = AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(group));
-            return group.outputRoot + "/" + SafeName(group.name) + "_" + guid;
+            return group.outputRoot + "/" + SafeName(group.name) + "_" + GroupIdentity(group);
+        }
+
+        private static string GroupIdentity(ConversionGroup group)
+        {
+            string path = AssetDatabase.GetAssetPath(group);
+            return string.IsNullOrEmpty(path) ? group.GetTemporaryGroupGuid() : AssetDatabase.AssetPathToGUID(path);
         }
 
         private static string Folder(ConversionGroup group, SourceAnalysis a, string root)

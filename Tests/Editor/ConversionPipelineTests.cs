@@ -127,6 +127,32 @@ namespace MineFarm.PixelToVoxel.Tests
         }
 
         [Test]
+        public void TemporaryGroupGeneratesAndRegeneratesWithoutAnAsset()
+        {
+            var temporary = ScriptableObject.CreateInstance<ConversionGroup>();
+            temporary.name = "Temporary Group";
+            temporary.outputRoot = root + "/Output";
+            temporary.settings.atlasSize = 16;
+            temporary.sources.Add(Png("Temporary", Color.red, Color.blue));
+            try
+            {
+                Assert.That(AssetDatabase.GetAssetPath(temporary), Is.Empty);
+                BatchResult first = ConversionPipeline.Generate(temporary, ConversionPipeline.Analyze(temporary, false), true, false);
+                Assert.That(first.Succeeded, Is.EqualTo(1));
+                string generatedRoot = temporary.generatedRoot;
+                Assert.That(generatedRoot, Does.StartWith(temporary.outputRoot + "/TemporaryGroup_"));
+                Assert.That(temporary.generatedGroupGuid, Has.Length.EqualTo(32));
+
+                temporary.settings.geometry.depth = 2;
+                BatchResult second = ConversionPipeline.Generate(temporary, ConversionPipeline.Analyze(temporary, false), true, false);
+                Assert.That(second.Succeeded, Is.EqualTo(1));
+                Assert.That(temporary.generatedRoot, Is.EqualTo(generatedRoot));
+                Assert.That(temporary.history, Has.Count.EqualTo(1));
+            }
+            finally { Object.DestroyImmediate(temporary); }
+        }
+
+        [Test]
         public void InvalidAndEmptyImagesDoNotPreventOtherInputs()
         {
             group.sources.Add(Png("Empty", Color.clear, Color.clear));

@@ -26,7 +26,7 @@ namespace MineFarm.PixelToVoxel.Editor
         public static void Open(ConversionGroup selected)
         {
             var window = GetWindow<PixelToVoxelWindow>("Pixel To Voxel");
-            window.group = selected; window.Invalidate(); window.Show();
+            window.SetGroup(selected); window.Show();
         }
 
         private void OnEnable()
@@ -34,6 +34,7 @@ namespace MineFarm.PixelToVoxel.Editor
             minSize = new Vector2(540, 600);
             EditorApplication.projectChanged += OnProjectChanged;
             Undo.undoRedoPerformed += Invalidate;
+            if (!group) CreateTemporaryGroup(true);
         }
 
         private void OnDisable()
@@ -41,6 +42,7 @@ namespace MineFarm.PixelToVoxel.Editor
             EditorApplication.projectChanged -= OnProjectChanged;
             Undo.undoRedoPerformed -= Invalidate;
             preview?.Dispose(); preview = null;
+            ReleaseTemporaryGroup();
         }
 
         private void OnProjectChanged()
@@ -65,14 +67,20 @@ namespace MineFarm.PixelToVoxel.Editor
             EditorGUILayout.LabelField("Pixel To Voxel", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("PNG / Sprite → extruded mesh → prefab", EditorStyles.miniLabel);
             EditorGUI.BeginChangeCheck();
-            group = (ConversionGroup)EditorGUILayout.ObjectField("Conversion Group", group, typeof(ConversionGroup), false);
-            if (EditorGUI.EndChangeCheck()) Invalidate();
-            if (GUILayout.Button("New Conversion Group…")) CreateGroup();
+            ConversionGroup selected = (ConversionGroup)EditorGUILayout.ObjectField("Conversion Group", group, typeof(ConversionGroup), false);
+            if (EditorGUI.EndChangeCheck()) SetGroup(selected);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (GUILayout.Button(IsTemporaryGroup ? "Save Conversion Group…" : "New Conversion Group…")) CreateGroup();
+                if (GUILayout.Button(IsTemporaryGroup ? "Reset Temporary Group" : "Use Temporary Group")) CreateTemporaryGroup(true);
+            }
             if (!group)
             {
-                EditorGUILayout.HelpBox("Create or select a group to save sources, settings and generation history. No runtime component is required.", MessageType.Info);
+                EditorGUILayout.HelpBox("A Conversion Group could not be created.", MessageType.Error);
                 return;
             }
+            if (IsTemporaryGroup)
+                EditorGUILayout.HelpBox("Temporary Group is ready. Its settings and history last until this window closes; generated assets remain. Save the group to keep regenerating them in later sessions.", MessageType.Info);
             if (analyses != null && analyzedFingerprint != Fingerprint()) Invalidate();
             scroll = EditorGUILayout.BeginScrollView(scroll);
             try
@@ -262,9 +270,60 @@ namespace MineFarm.PixelToVoxel.Editor
         {
             string path = EditorUtility.SaveFilePanelInProject("Create Conversion Group", "VoxelGroup", "asset", "Choose a project location.");
             if (string.IsNullOrEmpty(path)) return;
+            path = AssetDatabase.GenerateUniqueAssetPath(path);
+            if (IsTemporaryGroup)
+            {
+                HideFlags oldFlags = group.hideFlags;
+                group.hideFlags = HideFlags.None;
+                try
+                {
+                    AssetDatabase.CreateAsset(group, path);
+                    if (!string.IsNullOrEmpty(group.generatedRoot))
+                        group.generatedGroupGuid = AssetDatabase.AssetPathToGUID(path);
+                    EditorUtility.SetDirty(group);
+                    AssetDatabase.SaveAssets();
+                    notice = "Saved Conversion Group: " + path;
+                    Invalidate();
+                    EditorGUIUtility.PingObject(group);
+                }
+                catch
+                {
+                    if (group && !EditorUtility.IsPersistent(group)) group.hideFlags = oldFlags;
+                    throw;
+                }
+                return;
+            }
             var created = CreateInstance<ConversionGroup>();
-            AssetDatabase.CreateAsset(created, AssetDatabase.GenerateUniqueAssetPath(path));
-            group = created; Invalidate(); AddSources(Selection.objects); EditorGUIUtility.PingObject(group);
+            AssetDatabase.CreateAsset(created, path);
+            SetGroup(created); AddSources(Selection.objects); EditorGUIUtility.PingObject(group);
+        }
+
+        private bool IsTemporaryGroup => group && !EditorUtility.IsPersistent(group);
+
+        private void SetGroup(ConversionGroup selected)
+        {
+            if (group == selected) return;
+            ReleaseTemporaryGroup();
+            group = selected;
+            if (!group) CreateTemporaryGroup(false);
+            Invalidate();
+        }
+
+        private void CreateTemporaryGroup(bool addSelection)
+        {
+            ReleaseTemporaryGroup();
+            group = CreateInstance<ConversionGroup>();
+            group.name = "Temporary Group";
+            group.hideFlags = HideFlags.HideAndDontSave;
+            Invalidate();
+            if (addSelection) AddSources(Selection.objects);
+        }
+
+        private void ReleaseTemporaryGroup()
+        {
+            if (!group || EditorUtility.IsPersistent(group)) return;
+            DestroyImmediate(group);
+            group = null;
         }
 
         private void SavePreset()
@@ -286,7 +345,7 @@ namespace MineFarm.PixelToVoxel.Editor
                 EditorGUILayout.ObjectField(record.prefab, typeof(GameObject), false);
                 EditorGUILayout.LabelField($"{record.generatedUtc} · {record.vertices:N0} vertices · {record.triangles:N0} triangles", EditorStyles.wordWrappedMiniLabel);
             }
-            if (GUILayout.Button("Select Group Asset")) Selection.activeObject = group;
+            if (!IsTemporaryGroup && GUILayout.Button("Select Group Asset")) Selection.activeObject = group;
         }
     }
 

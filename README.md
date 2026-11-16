@@ -18,13 +18,14 @@ https://github.com/mine-farm/pixel-to-voxel.git
 ## 사용
 
 1. **Tools → Pixel To Voxel**을 엽니다.
-2. **New Conversion Group**으로 그룹 에셋을 저장합니다. 그룹과 프리셋은 `Assets/Editor/` 아래에 보관하는 것을 권장합니다.
+2. 창을 열면 **Temporary Group**이 자동으로 준비되므로 그룹 에셋 없이 바로 사용할 수 있습니다. 다음 에디터 세션에도 설정과 생성 이력을 유지하려면 **Save Conversion Group**으로 저장하세요. 그룹과 프리셋은 `Assets/Editor/` 아래에 보관하는 것을 권장합니다.
 3. PNG, Sprite 또는 프로젝트 폴더를 입력에 추가합니다. 폴더는 하위 폴더까지 검색하며 Sprite 시트는 개별 Sprite로 변환합니다. 중복 입력은 제거합니다.
 4. 크기, 두께, 알파 기준, 원점 등을 설정합니다.
 5. **Analyze Inputs**로 파일별 픽셀 수, 정점/삼각형 수와 경고를 확인합니다. **Preview**에서 회전/줌으로 확인할 수 있습니다.
 6. 필요한 파일만 체크하고 **Generate Selected**를 누릅니다. 경고 파일은 포함하거나 제외할 수 있습니다.
 
 출력은 기본적으로 `Assets/Generated/PixelToVoxel/<그룹 이름_GUID>/` 아래에 생성됩니다.
+Temporary Group도 고유한 임시 ID를 사용하므로 다른 그룹의 출력을 덮어쓰지 않습니다. 창을 닫아도 생성된 에셋은 남지만, 저장하지 않은 임시 그룹의 설정과 이력은 사라집니다.
 모델마다 전용 폴더에 Mesh와 Prefab을 저장하고, 공유 팔레트와 머티리얼은 그룹의 `Shared/`에 보관합니다.
 프리팹을 씬에 드래그하면 일반적인 MeshFilter / MeshRenderer 오브젝트로 사용할 수 있습니다.
 
