@@ -24,6 +24,8 @@ https://github.com/mine-farm/pixel-to-voxel.git
 5. **Analyze Inputs**로 파일별 픽셀 수, 정점/삼각형 수와 경고를 확인합니다. **Preview**에서 회전/줌으로 확인할 수 있습니다.
 6. 필요한 파일만 체크하고 **Generate Selected**를 누릅니다. 경고 파일은 포함하거나 제외할 수 있습니다.
 
+에디터 창은 UI Toolkit 기반의 반응형 레이아웃입니다. 창이 넓으면 설정과 프리뷰를 나란히 표시하고, 좁히면 한 열로 재배치됩니다. 메시 프리뷰 렌더링 영역만 Unity의 `PreviewRenderUtility` 연동을 위해 `IMGUIContainer`를 사용합니다.
+
 출력은 기본적으로 `Assets/Generated/PixelToVoxel/<그룹 이름_GUID>/` 아래에 생성됩니다.
 Temporary Group도 고유한 임시 ID를 사용하므로 다른 그룹의 출력을 덮어쓰지 않습니다. 창을 닫아도 생성된 에셋은 남지만, 저장하지 않은 임시 그룹의 설정과 이력은 사라집니다.
 모델마다 전용 폴더에 Mesh와 Prefab을 저장하고, 공유 팔레트와 머티리얼은 그룹의 `Shared/`에 보관합니다.

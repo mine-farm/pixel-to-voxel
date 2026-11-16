@@ -5,7 +5,9 @@ using MineFarm.PixelToVoxel.Core;
 using MineFarm.PixelToVoxel.Editor;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
 namespace MineFarm.PixelToVoxel.Tests
@@ -150,6 +152,25 @@ namespace MineFarm.PixelToVoxel.Tests
                 Assert.That(temporary.history, Has.Count.EqualTo(1));
             }
             finally { Object.DestroyImmediate(temporary); }
+        }
+
+        [Test]
+        public void EditorWindowBuildsUiToolkitLayoutWithTemporaryGroup()
+        {
+            const string layoutPath = "Packages/net.minefarm.pixel-to-voxel/Editor/PixelToVoxelWindow.uxml";
+            Assert.That(AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(layoutPath), Is.Not.Null);
+            var window = ScriptableObject.CreateInstance<PixelToVoxelWindow>();
+            try
+            {
+                window.CreateGUI();
+                Assert.That(window.rootVisualElement.Q<Button>("analyzeButton"), Is.Not.Null);
+                Assert.That(window.rootVisualElement.Q<IMGUIContainer>("previewContainer"), Is.Not.Null);
+                ObjectField groupField = window.rootVisualElement.Q<ObjectField>("groupField");
+                Assert.That(groupField, Is.Not.Null);
+                Assert.That(groupField.value, Is.TypeOf<ConversionGroup>());
+                Assert.That(AssetDatabase.GetAssetPath(groupField.value), Is.Empty);
+            }
+            finally { Object.DestroyImmediate(window); }
         }
 
         [Test]

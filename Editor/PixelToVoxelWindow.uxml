@@ -1,0 +1,150 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="True">
+    <ui:Style src="PixelToVoxelWindow.uss" />
+    <ui:VisualElement name="windowRoot" class="ptv-window">
+        <ui:VisualElement class="ptv-hero">
+            <ui:VisualElement class="ptv-hero__copy">
+                <ui:Label text="MINEFARM EDITOR TOOL" class="ptv-eyebrow" />
+                <ui:Label text="Pixel To Voxel" class="ptv-title" />
+                <ui:Label text="Turn crisp pixel art into production-ready meshes and prefabs." class="ptv-subtitle" />
+            </ui:VisualElement>
+            <ui:VisualElement class="ptv-steps">
+                <ui:Label text="01  INPUT" class="ptv-step ptv-step--active" />
+                <ui:Label text="02  PREFLIGHT" class="ptv-step" />
+                <ui:Label text="03  GENERATE" class="ptv-step" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement class="ptv-group-bar">
+            <ui:VisualElement name="groupFieldSlot" class="ptv-group-bar__field" />
+            <ui:Button name="groupPrimaryButton" text="Save Conversion Group…" class="ptv-button ptv-button--primary" />
+            <ui:Button name="temporaryButton" text="Reset Temporary Group" class="ptv-button ptv-button--quiet" />
+            <ui:Label name="workingBadge" text="WORKING" class="ptv-working ptv-hidden" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="temporaryNotice" class="ptv-banner ptv-banner--temporary">
+            <ui:Label text="TEMP" class="ptv-banner__badge" />
+            <ui:Label text="This scratch group is ready now. Save it only when you want its settings and generation history to survive the session." class="ptv-banner__text" />
+        </ui:VisualElement>
+
+        <ui:ScrollView name="mainScroll" class="ptv-scroll">
+            <ui:VisualElement class="ptv-workspace">
+                <ui:VisualElement class="ptv-column ptv-column--main">
+                    <ui:VisualElement class="ptv-card">
+                        <ui:VisualElement class="ptv-card__header">
+                            <ui:VisualElement>
+                                <ui:Label text="INPUTS" class="ptv-section-kicker" />
+                                <ui:Label text="Source artwork" class="ptv-card__title" />
+                            </ui:VisualElement>
+                            <ui:Label text="PNG · SPRITE · FOLDER" class="ptv-chip" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="sourcesFieldSlot" class="ptv-fields" />
+                        <ui:VisualElement class="ptv-button-row">
+                            <ui:Button name="addSelectionButton" text="Add Project Selection" class="ptv-button ptv-button--secondary" />
+                            <ui:Button name="clearInputsButton" text="Clear Inputs" class="ptv-button ptv-button--quiet" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="dropZone" class="ptv-drop-zone">
+                            <ui:Label text="DROP SOURCE ASSETS HERE" class="ptv-drop-zone__title" />
+                            <ui:Label text="Project PNGs, Sprites, or folders are accepted" class="ptv-drop-zone__hint" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <ui:VisualElement class="ptv-card">
+                        <ui:VisualElement class="ptv-card__header">
+                            <ui:VisualElement>
+                                <ui:Label text="CONVERSION" class="ptv-section-kicker" />
+                                <ui:Label text="Model settings" class="ptv-card__title" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="presetFieldSlot" class="ptv-fields" />
+                        <ui:VisualElement class="ptv-button-row">
+                            <ui:Button name="applyPresetButton" text="Apply Preset" class="ptv-button ptv-button--secondary" />
+                            <ui:Button name="savePresetButton" text="Save Settings as Preset…" class="ptv-button ptv-button--quiet" />
+                        </ui:VisualElement>
+                        <ui:Label text="GEOMETRY" class="ptv-subsection-title" />
+                        <ui:VisualElement name="geometryFields" class="ptv-fields ptv-fields--grid" />
+                        <ui:Label text="OUTPUT" class="ptv-subsection-title" />
+                        <ui:VisualElement name="outputFields" class="ptv-fields ptv-fields--grid" />
+                        <ui:Label name="outputPathLabel" text="Output path is assigned after the first generation." class="ptv-output-path" />
+                        <ui:Label text="GUARDRAILS" class="ptv-subsection-title" />
+                        <ui:VisualElement name="safetyFields" class="ptv-fields ptv-fields--grid" />
+                        <ui:VisualElement class="ptv-note">
+                            <ui:Label text="Depth uses pixel-size layers. Alpha is binary after thresholding. Pixel Step samples the center of each block." class="ptv-note__text" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement class="ptv-column ptv-column--side">
+                    <ui:VisualElement class="ptv-card ptv-card--preview">
+                        <ui:VisualElement class="ptv-card__header">
+                            <ui:VisualElement>
+                                <ui:Label text="LIVE VIEW" class="ptv-section-kicker" />
+                                <ui:Label text="Voxel preview" class="ptv-card__title" />
+                            </ui:VisualElement>
+                            <ui:Label name="previewStatusLabel" text="NO SELECTION" class="ptv-chip" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="previewHost" class="ptv-preview-host" />
+                        <ui:Label text="Drag to orbit  ·  Scroll to zoom" class="ptv-preview-hint" />
+                    </ui:VisualElement>
+
+                    <ui:VisualElement class="ptv-card ptv-card--workflow">
+                        <ui:Label text="WORKFLOW" class="ptv-section-kicker" />
+                        <ui:VisualElement class="ptv-workflow-row">
+                            <ui:Label text="1" class="ptv-workflow-number" />
+                            <ui:VisualElement>
+                                <ui:Label text="Choose source art" class="ptv-workflow-title" />
+                                <ui:Label text="Use files, sprites, or a project folder." class="ptv-workflow-copy" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="ptv-workflow-row">
+                            <ui:Label text="2" class="ptv-workflow-number" />
+                            <ui:VisualElement>
+                                <ui:Label text="Review preflight" class="ptv-workflow-title" />
+                                <ui:Label text="Inspect size, complexity, and warnings." class="ptv-workflow-copy" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="ptv-workflow-row">
+                            <ui:Label text="3" class="ptv-workflow-number" />
+                            <ui:VisualElement>
+                                <ui:Label text="Generate selected" class="ptv-workflow-title" />
+                                <ui:Label text="Meshes and prefabs keep stable references." class="ptv-workflow-copy" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement name="noticePanel" class="ptv-banner ptv-banner--notice ptv-hidden">
+                <ui:Label name="noticeLabel" class="ptv-banner__text" />
+            </ui:VisualElement>
+
+            <ui:Button name="analyzeButton" text="Analyze Inputs" class="ptv-button ptv-button--hero" />
+
+            <ui:VisualElement name="preflightSection" class="ptv-card ptv-preflight ptv-hidden">
+                <ui:VisualElement class="ptv-card__header ptv-card__header--wrap">
+                    <ui:VisualElement>
+                        <ui:Label text="PREFLIGHT" class="ptv-section-kicker" />
+                        <ui:Label text="Review conversion cost" class="ptv-card__title" />
+                        <ui:Label name="analysisSummaryLabel" class="ptv-card__copy" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="ptv-button-row ptv-button-row--compact">
+                        <ui:Button name="includeAllButton" text="Include All Valid" class="ptv-button ptv-button--secondary" />
+                        <ui:Button name="excludeWarningsButton" text="Exclude Warnings" class="ptv-button ptv-button--quiet" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="pagination" class="ptv-pagination ptv-hidden">
+                    <ui:Button name="previousPageButton" text="Previous" class="ptv-button ptv-button--quiet" />
+                    <ui:Label name="pageLabel" text="1 / 1" class="ptv-pagination__label" />
+                    <ui:Button name="nextPageButton" text="Next" class="ptv-button ptv-button--quiet" />
+                </ui:VisualElement>
+                <ui:VisualElement name="analysisList" class="ptv-analysis-list" />
+                <ui:Button name="generateButton" text="Generate Selected" class="ptv-button ptv-button--hero" />
+            </ui:VisualElement>
+
+            <ui:Foldout name="historyFoldout" text="Generation History" value="false" class="ptv-card ptv-history">
+                <ui:Label name="historySummaryLabel" class="ptv-card__copy" />
+                <ui:VisualElement name="historyList" class="ptv-history-list" />
+                <ui:Button name="selectGroupButton" text="Select Group Asset" class="ptv-button ptv-button--quiet" />
+            </ui:Foldout>
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>

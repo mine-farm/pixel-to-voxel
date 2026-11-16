@@ -2,23 +2,48 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
 namespace MineFarm.PixelToVoxel.Editor
 {
     public sealed class PixelToVoxelWindow : EditorWindow
     {
+        private const string LayoutPath = "Packages/net.minefarm.pixel-to-voxel/Editor/PixelToVoxelWindow.uxml";
+        internal const string StylePath = "Packages/net.minefarm.pixel-to-voxel/Editor/PixelToVoxelWindow.uss";
+        private const int PageSize = 30;
+        private static readonly int[] AtlasSizes = { 16, 32, 64, 128, 256, 512, 1024 };
+
         [SerializeField] private ConversionGroup group;
         [SerializeField] private ConversionPreset preset;
+        [SerializeField] private bool historyExpanded;
+
         private List<SourceAnalysis> analyses;
+        private readonly List<VisualElement> lockedAfterGeneration = new List<VisualElement>();
         private VoxelPreview preview;
-        private Vector2 scroll;
+        private SerializedObject serializedGroup;
         private string notice, analyzedFingerprint, sourceFingerprint;
+        private string previewLabel;
+        private NoticeTone noticeTone;
         private int page;
         private bool working;
-        private bool showHistory;
-        private const int PageSize = 30;
+
+        private ObjectField groupField, presetField;
+        private PopupField<int> atlasSizeField;
+        private VisualElement temporaryNotice, noticePanel, preflightSection, pagination, analysisList;
+        private VisualElement historyList, dropZone, previewHost, sourcesFieldSlot, presetFieldSlot;
+        private VisualElement geometryFields, outputFields, safetyFields;
+        private Button groupPrimaryButton, temporaryButton, addSelectionButton, clearInputsButton;
+        private Button applyPresetButton, savePresetButton, analyzeButton, generateButton;
+        private Button includeAllButton, excludeWarningsButton, previousPageButton, nextPageButton, selectGroupButton;
+        private Label workingBadge, noticeLabel, outputPathLabel, previewStatusLabel;
+        private Label analysisSummaryLabel, pageLabel, historySummaryLabel;
+        private Foldout historyFoldout;
+        private IMGUIContainer previewContainer;
+
+        private enum NoticeTone { Info, Success, Error }
 
         [MenuItem("Tools/Pixel To Voxel")]
         public static void Open() => GetWindow<PixelToVoxelWindow>("Pixel To Voxel");
@@ -26,225 +51,588 @@ namespace MineFarm.PixelToVoxel.Editor
         public static void Open(ConversionGroup selected)
         {
             var window = GetWindow<PixelToVoxelWindow>("Pixel To Voxel");
-            window.SetGroup(selected); window.Show();
+            window.SetGroup(selected);
+            window.Show();
         }
 
         private void OnEnable()
         {
             minSize = new Vector2(540, 600);
             EditorApplication.projectChanged += OnProjectChanged;
-            Undo.undoRedoPerformed += Invalidate;
-            if (!group) CreateTemporaryGroup(true);
+            Undo.undoRedoPerformed += OnUndoRedo;
+            if (!group)
+            {
+                group = MakeTemporaryGroup();
+                AddSourcesToGroup(Selection.objects, false);
+            }
         }
 
         private void OnDisable()
         {
             EditorApplication.projectChanged -= OnProjectChanged;
-            Undo.undoRedoPerformed -= Invalidate;
-            preview?.Dispose(); preview = null;
+            Undo.undoRedoPerformed -= OnUndoRedo;
+            preview?.Dispose();
+            preview = null;
             ReleaseTemporaryGroup();
+        }
+
+        public void CreateGUI()
+        {
+            rootVisualElement.Clear();
+            VisualTreeAsset layout = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(LayoutPath);
+            if (!layout)
+            {
+                rootVisualElement.Add(new HelpBox("Pixel To Voxel UI layout is missing: " + LayoutPath, HelpBoxMessageType.Error));
+                return;
+            }
+
+            layout.CloneTree(rootVisualElement);
+            CacheElements();
+            BuildObjectFields();
+            BuildPreview();
+            WireEvents();
+            BindGroup();
+            RefreshAll();
+        }
+
+        private void CacheElements()
+        {
+            temporaryNotice = Required<VisualElement>("temporaryNotice");
+            noticePanel = Required<VisualElement>("noticePanel");
+            preflightSection = Required<VisualElement>("preflightSection");
+            pagination = Required<VisualElement>("pagination");
+            analysisList = Required<VisualElement>("analysisList");
+            historyList = Required<VisualElement>("historyList");
+            dropZone = Required<VisualElement>("dropZone");
+            previewHost = Required<VisualElement>("previewHost");
+            sourcesFieldSlot = Required<VisualElement>("sourcesFieldSlot");
+            presetFieldSlot = Required<VisualElement>("presetFieldSlot");
+            geometryFields = Required<VisualElement>("geometryFields");
+            outputFields = Required<VisualElement>("outputFields");
+            safetyFields = Required<VisualElement>("safetyFields");
+
+            groupPrimaryButton = Required<Button>("groupPrimaryButton");
+            temporaryButton = Required<Button>("temporaryButton");
+            addSelectionButton = Required<Button>("addSelectionButton");
+            clearInputsButton = Required<Button>("clearInputsButton");
+            applyPresetButton = Required<Button>("applyPresetButton");
+            savePresetButton = Required<Button>("savePresetButton");
+            analyzeButton = Required<Button>("analyzeButton");
+            generateButton = Required<Button>("generateButton");
+            includeAllButton = Required<Button>("includeAllButton");
+            excludeWarningsButton = Required<Button>("excludeWarningsButton");
+            previousPageButton = Required<Button>("previousPageButton");
+            nextPageButton = Required<Button>("nextPageButton");
+            selectGroupButton = Required<Button>("selectGroupButton");
+
+            workingBadge = Required<Label>("workingBadge");
+            noticeLabel = Required<Label>("noticeLabel");
+            outputPathLabel = Required<Label>("outputPathLabel");
+            previewStatusLabel = Required<Label>("previewStatusLabel");
+            analysisSummaryLabel = Required<Label>("analysisSummaryLabel");
+            pageLabel = Required<Label>("pageLabel");
+            historySummaryLabel = Required<Label>("historySummaryLabel");
+            historyFoldout = Required<Foldout>("historyFoldout");
+        }
+
+        private T Required<T>(string name) where T : VisualElement
+        {
+            T element = rootVisualElement.Q<T>(name);
+            if (element == null) throw new InvalidOperationException($"Pixel To Voxel UI is missing '{name}'.");
+            return element;
+        }
+
+        private void BuildObjectFields()
+        {
+            groupField = new ObjectField("Conversion Group")
+            {
+                name = "groupField",
+                objectType = typeof(ConversionGroup),
+                allowSceneObjects = false
+            };
+            groupField.AddToClassList("ptv-field");
+            Required<VisualElement>("groupFieldSlot").Add(groupField);
+
+            presetField = new ObjectField("Settings Preset")
+            {
+                name = "presetField",
+                objectType = typeof(ConversionPreset),
+                allowSceneObjects = false
+            };
+            presetField.AddToClassList("ptv-field");
+            presetFieldSlot.Add(presetField);
+        }
+
+        private void BuildPreview()
+        {
+            previewContainer = new IMGUIContainer(DrawPreview) { name = "previewContainer" };
+            previewContainer.AddToClassList("ptv-preview");
+            previewHost.Add(previewContainer);
+        }
+
+        private void WireEvents()
+        {
+            groupField.RegisterValueChangedCallback(evt => SetGroup(evt.newValue as ConversionGroup));
+            presetField.RegisterValueChangedCallback(evt =>
+            {
+                preset = evt.newValue as ConversionPreset;
+                RefreshState();
+            });
+            groupPrimaryButton.clicked += CreateGroup;
+            temporaryButton.clicked += () => CreateTemporaryGroup(true);
+            addSelectionButton.clicked += () => AddSources(Selection.objects);
+            clearInputsButton.clicked += ClearInputs;
+            applyPresetButton.clicked += ApplyPreset;
+            savePresetButton.clicked += SavePreset;
+            analyzeButton.clicked += RunAnalysis;
+            generateButton.clicked += Generate;
+            includeAllButton.clicked += () =>
+            {
+                foreach (SourceAnalysis analysis in analyses ?? Enumerable.Empty<SourceAnalysis>())
+                    analysis.Included = string.IsNullOrEmpty(analysis.Error);
+                RefreshAnalyses();
+            };
+            excludeWarningsButton.clicked += () =>
+            {
+                foreach (SourceAnalysis analysis in analyses ?? Enumerable.Empty<SourceAnalysis>())
+                    if (!string.IsNullOrEmpty(analysis.Warning)) analysis.Included = false;
+                RefreshAnalyses();
+            };
+            previousPageButton.clicked += () => { page--; RefreshAnalyses(); };
+            nextPageButton.clicked += () => { page++; RefreshAnalyses(); };
+            selectGroupButton.clicked += () => Selection.activeObject = group;
+            historyFoldout.value = historyExpanded;
+            historyFoldout.RegisterValueChangedCallback(evt => historyExpanded = evt.newValue);
+
+            dropZone.RegisterCallback<DragUpdatedEvent>(OnDragUpdated);
+            dropZone.RegisterCallback<DragPerformEvent>(OnDragPerform);
+            dropZone.RegisterCallback<DragLeaveEvent>(_ => dropZone.RemoveFromClassList("ptv-drop-zone--active"));
+        }
+
+        private void BindGroup()
+        {
+            sourcesFieldSlot?.Clear();
+            geometryFields?.Clear();
+            outputFields?.Clear();
+            safetyFields?.Clear();
+            lockedAfterGeneration.Clear();
+            serializedGroup = null;
+            atlasSizeField = null;
+
+            if (!group || sourcesFieldSlot == null) return;
+            serializedGroup = new SerializedObject(group);
+            serializedGroup.Update();
+
+            PropertyField sources = AddPropertyField(sourcesFieldSlot, "sources", "Source Assets");
+            sources.AddToClassList("ptv-sources-field");
+
+            AddPropertyField(geometryFields, "settings.geometry.pixelStep", "Pixel Step");
+            AddPropertyField(geometryFields, "settings.geometry.pixelSize", "Pixel Size");
+            AddPropertyField(geometryFields, "settings.geometry.depth", "Depth");
+            AddPropertyField(geometryFields, "settings.geometry.alphaThreshold", "Alpha Threshold");
+            AddPropertyField(geometryFields, "settings.geometry.trimTransparent", "Trim Transparent");
+            AddPropertyField(geometryFields, "settings.geometry.flipX", "Flip X");
+            AddPropertyField(geometryFields, "settings.geometry.flipY", "Flip Y");
+            AddPropertyField(geometryFields, "settings.geometry.pivot", "Pivot");
+
+            AddPropertyField(outputFields, "settings.facing", "Facing");
+            AddPropertyField(outputFields, "settings.collider", "Collider");
+            AddPropertyField(outputFields, "settings.existingOutputs", "Existing Outputs");
+            lockedAfterGeneration.Add(AddPropertyField(outputFields, "settings.sharedAtlas", "Shared Atlas"));
+            AddAtlasSizeField();
+            lockedAfterGeneration.Add(AddPropertyField(outputFields, "outputRoot", "Output Root"));
+
+            AddPropertyField(safetyFields, "settings.warningDimension", "Dimension Warning");
+            AddPropertyField(safetyFields, "settings.warningSolidPixels", "Solid Pixel Warning");
+            AddPropertyField(safetyFields, "settings.warningVertices", "Vertex Warning");
+            UpdateGenerationLocks();
+        }
+
+        private PropertyField AddPropertyField(VisualElement parent, string path, string label)
+        {
+            SerializedProperty property = serializedGroup.FindProperty(path);
+            if (property == null) throw new InvalidOperationException("Missing serialized property: " + path);
+            var field = new PropertyField(property, label) { name = path.Replace('.', '-') };
+            field.AddToClassList("ptv-field");
+            field.BindProperty(property);
+            field.RegisterCallback<SerializedPropertyChangeEvent>(_ => OnSerializedGroupChanged());
+            parent.Add(field);
+            return field;
+        }
+
+        private void AddAtlasSizeField()
+        {
+            List<int> choices = AtlasSizes.ToList();
+            if (!choices.Contains(group.settings.atlasSize))
+            {
+                choices.Add(group.settings.atlasSize);
+                choices.Sort();
+            }
+            atlasSizeField = new PopupField<int>("Atlas Size", choices, group.settings.atlasSize,
+                size => $"{size} × {size}", size => $"{size} × {size}") { name = "atlasSizeField" };
+            atlasSizeField.AddToClassList("ptv-field");
+            atlasSizeField.RegisterValueChangedCallback(evt =>
+            {
+                if (!group || group.settings.atlasSize == evt.newValue) return;
+                Undo.RecordObject(group, "Change voxel atlas size");
+                group.settings.atlasSize = evt.newValue;
+                EditorUtility.SetDirty(group);
+                Invalidate();
+            });
+            outputFields.Add(atlasSizeField);
+            lockedAfterGeneration.Add(atlasSizeField);
+        }
+
+        private void OnSerializedGroupChanged()
+        {
+            if (!group) return;
+            EditorUtility.SetDirty(group);
+            Invalidate();
+            UpdateGenerationLocks();
+            RefreshOutputPath();
         }
 
         private void OnProjectChanged()
         {
             if (working || analyses == null) return;
-            try { if (analyzedFingerprint != Fingerprint() || sourceFingerprint != InputFingerprint()) Invalidate(); }
+            try
+            {
+                if (analyzedFingerprint != Fingerprint() || sourceFingerprint != InputFingerprint()) Invalidate();
+            }
             catch { Invalidate(); }
+        }
+
+        private void OnUndoRedo()
+        {
+            Invalidate();
+            BindGroup();
+            RefreshAll();
         }
 
         private void Invalidate()
         {
-            analyses = null; analyzedFingerprint = null; page = 0;
-            preview?.Dispose(); preview = null; Repaint();
+            analyses = null;
+            analyzedFingerprint = null;
+            sourceFingerprint = null;
+            page = 0;
+            previewLabel = null;
+            preview?.Dispose();
+            preview = null;
+            RefreshAnalyses();
+            RefreshPreview();
+            RefreshState();
         }
 
         private string Fingerprint() => group ? EditorJsonUtility.ToJson(group) : "";
-        private string InputFingerprint() => group ? string.Join("|", SourceReader.Expand(group.sources)
-            .Select(s => SourceReader.Id(s) + ":" + AssetDatabase.GetAssetDependencyHash(AssetDatabase.GetAssetPath(s)))) : "";
 
-        private void OnGUI()
+        private string InputFingerprint() => group ? string.Join("|", SourceReader.Expand(group.sources)
+            .Select(source => SourceReader.Id(source) + ":" + AssetDatabase.GetAssetDependencyHash(AssetDatabase.GetAssetPath(source)))) : "";
+
+        private void RefreshAll()
         {
-            EditorGUILayout.LabelField("Pixel To Voxel", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField("PNG / Sprite → extruded mesh → prefab", EditorStyles.miniLabel);
-            EditorGUI.BeginChangeCheck();
-            ConversionGroup selected = (ConversionGroup)EditorGUILayout.ObjectField("Conversion Group", group, typeof(ConversionGroup), false);
-            if (EditorGUI.EndChangeCheck()) SetGroup(selected);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button(IsTemporaryGroup ? "Save Conversion Group…" : "New Conversion Group…")) CreateGroup();
-                if (GUILayout.Button(IsTemporaryGroup ? "Reset Temporary Group" : "Use Temporary Group")) CreateTemporaryGroup(true);
-            }
-            if (!group)
-            {
-                EditorGUILayout.HelpBox("A Conversion Group could not be created.", MessageType.Error);
-                return;
-            }
-            if (IsTemporaryGroup)
-                EditorGUILayout.HelpBox("Temporary Group is ready. Its settings and history last until this window closes; generated assets remain. Save the group to keep regenerating them in later sessions.", MessageType.Info);
-            if (analyses != null && analyzedFingerprint != Fingerprint()) Invalidate();
-            scroll = EditorGUILayout.BeginScrollView(scroll);
-            try
-            {
-                DrawInputs();
-                DrawSettings();
-                if (!string.IsNullOrEmpty(notice)) EditorGUILayout.HelpBox(notice, MessageType.Info);
-                if (GUILayout.Button("1. Analyze Inputs", GUILayout.Height(30))) RunAnalysis();
-                DrawAnalyses();
-                Rect rect = GUILayoutUtility.GetRect(100, 260, GUILayout.ExpandWidth(true));
-                if (preview == null) preview = new VoxelPreview();
-                preview.Draw(rect, Repaint);
-                EditorGUILayout.LabelField("Drag to orbit · Scroll to zoom", EditorStyles.centeredGreyMiniLabel);
-                DrawHistory();
-            }
-            finally { EditorGUILayout.EndScrollView(); }
+            RefreshState();
+            RefreshNotice();
+            RefreshAnalyses();
+            RefreshPreview();
+            RefreshHistory();
+            RefreshOutputPath();
         }
 
-        private void DrawInputs()
+        private void RefreshState()
         {
-            var serialized = new SerializedObject(group);
-            serialized.Update();
-            EditorGUILayout.PropertyField(serialized.FindProperty("sources"), new GUIContent("Inputs (PNG, Sprite, project folder)"), true);
-            if (serialized.ApplyModifiedProperties()) Invalidate();
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("Add Project Selection")) AddSources(Selection.objects);
-                if (GUILayout.Button("Clear Inputs"))
-                {
-                    Undo.RecordObject(group, "Clear voxel inputs"); group.sources.Clear(); EditorUtility.SetDirty(group); Invalidate();
-                }
-            }
-            Rect drop = GUILayoutUtility.GetRect(0, 38, GUILayout.ExpandWidth(true));
-            GUI.Box(drop, "Drop project PNGs, Sprites or folders here");
-            Event e = Event.current;
-            if (drop.Contains(e.mousePosition) && (e.type == EventType.DragUpdated || e.type == EventType.DragPerform))
-            {
-                DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
-                if (e.type == EventType.DragPerform) { DragAndDrop.AcceptDrag(); AddSources(DragAndDrop.objectReferences); }
-                e.Use();
-            }
+            if (groupField == null) return;
+            groupField.SetValueWithoutNotify(group);
+            presetField.SetValueWithoutNotify(preset);
+            bool temporary = IsTemporaryGroup;
+            groupPrimaryButton.text = temporary ? "Save Conversion Group…" : "New Conversion Group…";
+            temporaryButton.text = temporary ? "Reset Temporary Group" : "Use Temporary Group";
+            temporaryNotice.EnableInClassList("ptv-hidden", !temporary);
+            workingBadge.EnableInClassList("ptv-hidden", !working);
+            groupPrimaryButton.SetEnabled(!working);
+            temporaryButton.SetEnabled(!working);
+            addSelectionButton.SetEnabled(!working && group);
+            clearInputsButton.SetEnabled(!working && group && group.sources.Count > 0);
+            applyPresetButton.SetEnabled(!working && group && preset);
+            savePresetButton.SetEnabled(!working && group);
+            analyzeButton.SetEnabled(!working && group && group.sources.Count > 0);
+            generateButton.SetEnabled(!working && analyses != null && analyses.Any(a => a.Included && a.Grid != null));
+            selectGroupButton.EnableInClassList("ptv-hidden", temporary || !group);
+            UpdateGenerationLocks();
+        }
+
+        private void UpdateGenerationLocks()
+        {
+            bool editable = group && string.IsNullOrEmpty(group.generatedRoot) && !working;
+            foreach (VisualElement element in lockedAfterGeneration) element.SetEnabled(editable);
+        }
+
+        private void SetNotice(string message, NoticeTone tone)
+        {
+            notice = message;
+            noticeTone = tone;
+            RefreshNotice();
+        }
+
+        private void RefreshNotice()
+        {
+            if (noticePanel == null) return;
+            bool visible = !string.IsNullOrEmpty(notice);
+            noticePanel.EnableInClassList("ptv-hidden", !visible);
+            noticePanel.EnableInClassList("ptv-banner--success", visible && noticeTone == NoticeTone.Success);
+            noticePanel.EnableInClassList("ptv-banner--error", visible && noticeTone == NoticeTone.Error);
+            noticeLabel.text = notice ?? "";
+        }
+
+        private void RefreshOutputPath()
+        {
+            if (outputPathLabel == null || !group) return;
+            outputPathLabel.text = string.IsNullOrEmpty(group.generatedRoot)
+                ? $"Output will be created below {group.outputRoot}."
+                : "Generated output  ·  " + group.generatedRoot;
+        }
+
+        private void OnDragUpdated(DragUpdatedEvent evt)
+        {
+            if (!HasSupportedSource(DragAndDrop.objectReferences)) return;
+            DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+            dropZone.AddToClassList("ptv-drop-zone--active");
+            evt.StopPropagation();
+        }
+
+        private void OnDragPerform(DragPerformEvent evt)
+        {
+            if (!HasSupportedSource(DragAndDrop.objectReferences)) return;
+            DragAndDrop.AcceptDrag();
+            dropZone.RemoveFromClassList("ptv-drop-zone--active");
+            AddSources(DragAndDrop.objectReferences);
+            evt.StopPropagation();
+        }
+
+        private static bool HasSupportedSource(IEnumerable<Object> objects)
+        {
+            return objects.Any(source => source && (source is Texture2D || source is Sprite
+                || AssetDatabase.IsValidFolder(AssetDatabase.GetAssetPath(source))));
         }
 
         private void AddSources(IEnumerable<Object> objects)
         {
-            Undo.RecordObject(group, "Add voxel inputs");
-            foreach (Object obj in objects)
-            {
-                if (!obj || group.sources.Contains(obj)) continue;
-                string path = AssetDatabase.GetAssetPath(obj);
-                if (obj is Texture2D || obj is Sprite || AssetDatabase.IsValidFolder(path)) group.sources.Add(obj);
-            }
-            EditorUtility.SetDirty(group); Invalidate();
+            if (!group || !AddSourcesToGroup(objects, true)) return;
+            Invalidate();
+            BindGroup();
+            RefreshAll();
         }
 
-        private void DrawSettings()
+        private bool AddSourcesToGroup(IEnumerable<Object> objects, bool recordUndo)
         {
-            EditorGUILayout.Space();
-            preset = (ConversionPreset)EditorGUILayout.ObjectField("Settings Preset", preset, typeof(ConversionPreset), false);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                using (new EditorGUI.DisabledScope(!preset))
-                    if (GUILayout.Button("Apply Preset"))
-                    {
-                        Undo.RecordObject(group, "Apply voxel preset");
-                        group.settings = JsonUtility.FromJson<ConversionSettings>(JsonUtility.ToJson(preset.settings));
-                        EditorUtility.SetDirty(group); Invalidate();
-                    }
-                if (GUILayout.Button("Save Settings as Preset…")) SavePreset();
-            }
-            var serialized = new SerializedObject(group);
-            serialized.Update();
-            SerializedProperty settings = serialized.FindProperty("settings");
-            EditorGUILayout.PropertyField(settings.FindPropertyRelative("geometry"), true);
-            EditorGUILayout.PropertyField(settings.FindPropertyRelative("facing"));
-            EditorGUILayout.PropertyField(settings.FindPropertyRelative("collider"));
-            EditorGUILayout.PropertyField(settings.FindPropertyRelative("existingOutputs"));
-            using (new EditorGUI.DisabledScope(!string.IsNullOrEmpty(group.generatedRoot)))
-            {
-                EditorGUILayout.PropertyField(settings.FindPropertyRelative("sharedAtlas"));
-                SerializedProperty size = settings.FindPropertyRelative("atlasSize");
-                int[] sizes = { 16, 32, 64, 128, 256, 512, 1024 };
-                size.intValue = EditorGUILayout.IntPopup("Atlas Size", size.intValue, sizes.Select(s => s + " × " + s).ToArray(), sizes);
-                EditorGUILayout.PropertyField(serialized.FindProperty("outputRoot"));
-            }
-            EditorGUILayout.PropertyField(settings.FindPropertyRelative("warningDimension"));
-            EditorGUILayout.PropertyField(settings.FindPropertyRelative("warningSolidPixels"));
-            EditorGUILayout.PropertyField(settings.FindPropertyRelative("warningVertices"));
-            if (serialized.ApplyModifiedProperties()) Invalidate();
-            EditorGUILayout.HelpBox("Depth is measured in pixel-size layers. Alpha is binary after thresholding. Pixel Step samples the center of each block; image dimensions must be divisible by it.", MessageType.None);
-            if (!string.IsNullOrEmpty(group.generatedRoot))
-                EditorGUILayout.LabelField("Output: " + group.generatedRoot, EditorStyles.wordWrappedMiniLabel);
+            if (!group) return false;
+            List<Object> additions = objects.Where(source => source && !group.sources.Contains(source))
+                .Where(source => source is Texture2D || source is Sprite
+                    || AssetDatabase.IsValidFolder(AssetDatabase.GetAssetPath(source))).ToList();
+            if (additions.Count == 0) return false;
+            if (recordUndo) Undo.RecordObject(group, "Add voxel inputs");
+            group.sources.AddRange(additions);
+            EditorUtility.SetDirty(group);
+            return true;
+        }
+
+        private void ClearInputs()
+        {
+            if (!group || group.sources.Count == 0) return;
+            Undo.RecordObject(group, "Clear voxel inputs");
+            group.sources.Clear();
+            EditorUtility.SetDirty(group);
+            Invalidate();
+            BindGroup();
+            RefreshAll();
+        }
+
+        private void ApplyPreset()
+        {
+            if (!group || !preset) return;
+            Undo.RecordObject(group, "Apply voxel preset");
+            group.settings = JsonUtility.FromJson<ConversionSettings>(JsonUtility.ToJson(preset.settings));
+            EditorUtility.SetDirty(group);
+            Invalidate();
+            BindGroup();
+            RefreshAll();
+            SetNotice("Preset applied. Analyze the inputs again before generating.", NoticeTone.Info);
         }
 
         private void RunAnalysis()
         {
             working = true;
+            RefreshState();
             try
             {
                 Invalidate();
                 analyses = ConversionPipeline.Analyze(group);
                 analyzedFingerprint = Fingerprint();
                 sourceFingerprint = InputFingerprint();
-                notice = $"{analyses.Count} inputs · {analyses.Count(a => !string.IsNullOrEmpty(a.Warning))} warnings · {analyses.Count(a => !string.IsNullOrEmpty(a.Error))} errors";
+                int warnings = analyses.Count(a => !string.IsNullOrEmpty(a.Warning));
+                int errors = analyses.Count(a => !string.IsNullOrEmpty(a.Error));
+                SetNotice($"Preflight complete  ·  {analyses.Count} inputs  ·  {warnings} warnings  ·  {errors} errors", NoticeTone.Info);
             }
-            catch (OperationCanceledException) { notice = "Analysis cancelled. No output was generated."; }
-            catch (Exception e) { notice = e.Message; }
-            finally { working = false; }
+            catch (OperationCanceledException)
+            {
+                SetNotice("Analysis cancelled. No output was generated.", NoticeTone.Info);
+            }
+            catch (Exception e)
+            {
+                SetNotice(e.Message, NoticeTone.Error);
+            }
+            finally
+            {
+                working = false;
+                RefreshAnalyses();
+                RefreshState();
+            }
         }
 
-        private void DrawAnalyses()
+        private void RefreshAnalyses()
         {
-            if (analyses == null) return;
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Preflight", EditorStyles.boldLabel);
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                if (GUILayout.Button("Include All Valid")) foreach (SourceAnalysis a in analyses) a.Included = string.IsNullOrEmpty(a.Error);
-                if (GUILayout.Button("Exclude Warnings")) foreach (SourceAnalysis a in analyses) if (!string.IsNullOrEmpty(a.Warning)) a.Included = false;
-            }
+            if (preflightSection == null) return;
+            analysisList.Clear();
+            bool visible = analyses != null;
+            preflightSection.EnableInClassList("ptv-hidden", !visible);
+            if (!visible) return;
+
+            int warnings = analyses.Count(a => !string.IsNullOrEmpty(a.Warning));
+            int errors = analyses.Count(a => !string.IsNullOrEmpty(a.Error));
+            analysisSummaryLabel.text = $"{analyses.Count} sources  ·  {warnings} warnings  ·  {errors} errors";
             int pages = Math.Max(1, (analyses.Count + PageSize - 1) / PageSize);
             page = Mathf.Clamp(page, 0, pages - 1);
-            if (pages > 1)
+            pagination.EnableInClassList("ptv-hidden", pages <= 1);
+            pageLabel.text = $"{page + 1} / {pages}";
+            previousPageButton.SetEnabled(page > 0);
+            nextPageButton.SetEnabled(page < pages - 1);
+
+            foreach (SourceAnalysis analysis in analyses.Skip(page * PageSize).Take(PageSize))
+                analysisList.Add(BuildAnalysisCard(analysis));
+            RefreshState();
+        }
+
+        private VisualElement BuildAnalysisCard(SourceAnalysis analysis)
+        {
+            var card = new VisualElement();
+            card.AddToClassList("ptv-analysis-card");
+            var top = new VisualElement();
+            top.AddToClassList("ptv-analysis-card__top");
+
+            var included = new Toggle { value = analysis.Included };
+            included.AddToClassList("ptv-analysis-card__toggle");
+            included.SetEnabled(string.IsNullOrEmpty(analysis.Error));
+            included.RegisterValueChangedCallback(evt =>
             {
-                using (new EditorGUILayout.HorizontalScope())
+                analysis.Included = evt.newValue;
+                RefreshState();
+            });
+            top.Add(included);
+
+            var source = new ObjectField
+            {
+                objectType = typeof(Object),
+                allowSceneObjects = false,
+                value = analysis.Source
+            };
+            source.AddToClassList("ptv-analysis-card__source");
+            source.SetEnabled(false);
+            top.Add(source);
+
+            var status = new Label();
+            status.AddToClassList("ptv-status");
+            if (!string.IsNullOrEmpty(analysis.Error))
+            {
+                status.text = "ERROR";
+                status.AddToClassList("ptv-status--error");
+            }
+            else if (!string.IsNullOrEmpty(analysis.Warning))
+            {
+                status.text = "WARNING";
+                status.AddToClassList("ptv-status--warning");
+            }
+            else
+            {
+                status.text = "READY";
+                status.AddToClassList("ptv-status--ready");
+            }
+            top.Add(status);
+
+            var previewButton = new Button(() => PreviewAnalysis(analysis)) { text = "Preview" };
+            previewButton.AddToClassList("ptv-button");
+            previewButton.AddToClassList("ptv-button--quiet");
+            previewButton.SetEnabled(analysis.Grid != null);
+            top.Add(previewButton);
+            card.Add(top);
+
+            if (analysis.Statistics != null)
+            {
+                var stats = analysis.Statistics;
+                var statsLabel = new Label($"{analysis.SourceWidth}×{analysis.SourceHeight}  →  {analysis.Grid?.Width}×{analysis.Grid?.Height}  ·  {stats.SolidPixels:N0} cells  ·  {stats.Vertices:N0} vertices  ·  {stats.Triangles:N0} triangles");
+                statsLabel.AddToClassList("ptv-analysis-card__stats");
+                card.Add(statsLabel);
+                if (analysis.Grid != null)
                 {
-                    using (new EditorGUI.DisabledScope(page == 0)) if (GUILayout.Button("Previous")) page--;
-                    GUILayout.Label($"{page + 1} / {pages}");
-                    using (new EditorGUI.DisabledScope(page == pages - 1)) if (GUILayout.Button("Next")) page++;
+                    float unit = group.settings.geometry.pixelSize;
+                    var sizeLabel = new Label($"Size before facing  ·  {analysis.Grid.Width * unit:G4} × {analysis.Grid.Height * unit:G4} × {group.settings.geometry.depth * unit:G4} units");
+                    sizeLabel.AddToClassList("ptv-analysis-card__size");
+                    card.Add(sizeLabel);
                 }
             }
-            foreach (SourceAnalysis a in analyses.Skip(page * PageSize).Take(PageSize))
+
+            if (!string.IsNullOrEmpty(analysis.Error))
             {
-                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
-                {
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        using (new EditorGUI.DisabledScope(!string.IsNullOrEmpty(a.Error))) a.Included = EditorGUILayout.Toggle(a.Included, GUILayout.Width(18));
-                        EditorGUILayout.ObjectField(a.Source, typeof(Object), false);
-                        using (new EditorGUI.DisabledScope(a.Grid == null))
-                            if (GUILayout.Button("Preview", GUILayout.Width(65)))
-                            {
-                                try { if (preview == null) preview = new VoxelPreview(); preview.Set(a, group.settings); }
-                                catch (Exception e) { notice = e.Message; }
-                            }
-                    }
-                    if (a.Statistics != null)
-                    {
-                        var s = a.Statistics;
-                        EditorGUILayout.LabelField($"{a.SourceWidth}×{a.SourceHeight} → {a.Grid?.Width}×{a.Grid?.Height} · {s.SolidPixels:N0} cells · {s.Vertices:N0} vertices · {s.Triangles:N0} triangles", EditorStyles.wordWrappedMiniLabel);
-                        float unit = group.settings.geometry.pixelSize;
-                        if (a.Grid != null) EditorGUILayout.LabelField($"Size before facing: {a.Grid.Width * unit:G4} × {a.Grid.Height * unit:G4} × {group.settings.geometry.depth * unit:G4} units", EditorStyles.miniLabel);
-                    }
-                    if (!string.IsNullOrEmpty(a.Error)) EditorGUILayout.HelpBox(a.Error, MessageType.Error);
-                    else if (!string.IsNullOrEmpty(a.Warning)) EditorGUILayout.HelpBox(a.Warning + ". Generation may take time and memory.", MessageType.Warning);
-                    if (!string.IsNullOrEmpty(a.Result)) EditorGUILayout.LabelField(a.Result, EditorStyles.wordWrappedMiniLabel);
-                }
+                var error = new HelpBox(analysis.Error, HelpBoxMessageType.Error);
+                error.AddToClassList("ptv-analysis-help");
+                card.Add(error);
             }
-            using (new EditorGUI.DisabledScope(!analyses.Any(a => a.Included && a.Grid != null)))
-                if (GUILayout.Button("2. Generate Selected", GUILayout.Height(32))) Generate();
+            else if (!string.IsNullOrEmpty(analysis.Warning))
+            {
+                var warning = new HelpBox(analysis.Warning + ". Generation may take time and memory.", HelpBoxMessageType.Warning);
+                warning.AddToClassList("ptv-analysis-help");
+                card.Add(warning);
+            }
+            if (!string.IsNullOrEmpty(analysis.Result))
+            {
+                var result = new Label(analysis.Result);
+                result.AddToClassList("ptv-analysis-card__result");
+                card.Add(result);
+            }
+            return card;
+        }
+
+        private void PreviewAnalysis(SourceAnalysis analysis)
+        {
+            try
+            {
+                if (preview == null) preview = new VoxelPreview();
+                preview.Set(analysis, group.settings);
+                previewLabel = analysis.Label;
+                RefreshPreview();
+            }
+            catch (Exception e)
+            {
+                SetNotice(e.Message, NoticeTone.Error);
+            }
+        }
+
+        private void DrawPreview()
+        {
+            if (preview == null) preview = new VoxelPreview();
+            Rect content = previewContainer.contentRect;
+            var rect = new Rect(0, 0, content.width, content.height);
+            preview.Draw(rect, () => previewContainer.MarkDirtyRepaint());
+        }
+
+        private void RefreshPreview()
+        {
+            if (previewStatusLabel == null) return;
+            previewStatusLabel.text = string.IsNullOrEmpty(previewLabel) ? "NO SELECTION" : previewLabel.ToUpperInvariant();
+            previewContainer?.MarkDirtyRepaint();
         }
 
         private void Generate()
         {
+            if (analyses == null) return;
             bool includeWarnings = true;
             if (analyses.Any(a => a.Included && !string.IsNullOrEmpty(a.Warning)))
             {
@@ -254,21 +642,65 @@ namespace MineFarm.PixelToVoxel.Editor
                 if (choice == 1) return;
                 includeWarnings = choice == 0;
             }
+
             working = true;
+            RefreshState();
             try
             {
-                if (analyzedFingerprint != Fingerprint()) throw new InvalidOperationException("Settings changed. Analyze Inputs again before generating.");
-                if (sourceFingerprint != InputFingerprint()) throw new InvalidOperationException("Source images changed. Analyze Inputs again before generating.");
-                notice = ConversionPipeline.Generate(group, analyses, includeWarnings).ToString();
+                if (analyzedFingerprint != Fingerprint())
+                    throw new InvalidOperationException("Settings changed. Analyze Inputs again before generating.");
+                if (sourceFingerprint != InputFingerprint())
+                    throw new InvalidOperationException("Source images changed. Analyze Inputs again before generating.");
+                BatchResult result = ConversionPipeline.Generate(group, analyses, includeWarnings);
                 analyzedFingerprint = Fingerprint();
+                SetNotice(result.ToString(), result.Failed == 0 ? NoticeTone.Success : NoticeTone.Error);
             }
-            catch (Exception e) { notice = e.Message; }
-            finally { working = false; }
+            catch (Exception e)
+            {
+                SetNotice(e.Message, NoticeTone.Error);
+            }
+            finally
+            {
+                working = false;
+                RefreshAnalyses();
+                RefreshHistory();
+                RefreshOutputPath();
+                RefreshState();
+            }
+        }
+
+        private void RefreshHistory()
+        {
+            if (historyList == null || !group) return;
+            historyFoldout.text = $"Generation History  ·  {group.history.Count}";
+            historySummaryLabel.text = string.IsNullOrEmpty(group.lastSummary)
+                ? "Generated outputs will appear here."
+                : group.lastSummary;
+            historyList.Clear();
+            foreach (GenerationRecord record in group.history)
+            {
+                var row = new VisualElement();
+                row.AddToClassList("ptv-history-row");
+                var asset = new ObjectField
+                {
+                    objectType = typeof(GameObject),
+                    allowSceneObjects = false,
+                    value = record.prefab
+                };
+                asset.AddToClassList("ptv-history-row__asset");
+                asset.SetEnabled(false);
+                row.Add(asset);
+                var stats = new Label($"{record.generatedUtc}  ·  {record.vertices:N0} vertices  ·  {record.triangles:N0} triangles");
+                stats.AddToClassList("ptv-history-row__stats");
+                row.Add(stats);
+                historyList.Add(row);
+            }
         }
 
         private void CreateGroup()
         {
-            string path = EditorUtility.SaveFilePanelInProject("Create Conversion Group", "VoxelGroup", "asset", "Choose a project location.");
+            string title = IsTemporaryGroup ? "Save Conversion Group" : "Create Conversion Group";
+            string path = EditorUtility.SaveFilePanelInProject(title, "VoxelGroup", "asset", "Choose a project location.");
             if (string.IsNullOrEmpty(path)) return;
             path = AssetDatabase.GenerateUniqueAssetPath(path);
             if (IsTemporaryGroup)
@@ -282,8 +714,9 @@ namespace MineFarm.PixelToVoxel.Editor
                         group.generatedGroupGuid = AssetDatabase.AssetPathToGUID(path);
                     EditorUtility.SetDirty(group);
                     AssetDatabase.SaveAssets();
-                    notice = "Saved Conversion Group: " + path;
-                    Invalidate();
+                    SetNotice("Saved Conversion Group  ·  " + path, NoticeTone.Success);
+                    BindGroup();
+                    RefreshAll();
                     EditorGUIUtility.PingObject(group);
                 }
                 catch
@@ -293,9 +726,12 @@ namespace MineFarm.PixelToVoxel.Editor
                 }
                 return;
             }
+
             var created = CreateInstance<ConversionGroup>();
             AssetDatabase.CreateAsset(created, path);
-            SetGroup(created); AddSources(Selection.objects); EditorGUIUtility.PingObject(group);
+            SetGroup(created);
+            AddSources(Selection.objects);
+            EditorGUIUtility.PingObject(group);
         }
 
         private bool IsTemporaryGroup => group && !EditorUtility.IsPersistent(group);
@@ -304,19 +740,28 @@ namespace MineFarm.PixelToVoxel.Editor
         {
             if (group == selected) return;
             ReleaseTemporaryGroup();
-            group = selected;
-            if (!group) CreateTemporaryGroup(false);
+            group = selected ? selected : MakeTemporaryGroup();
             Invalidate();
+            BindGroup();
+            RefreshAll();
         }
 
         private void CreateTemporaryGroup(bool addSelection)
         {
             ReleaseTemporaryGroup();
-            group = CreateInstance<ConversionGroup>();
-            group.name = "Temporary Group";
-            group.hideFlags = HideFlags.HideAndDontSave;
+            group = MakeTemporaryGroup();
+            if (addSelection) AddSourcesToGroup(Selection.objects, false);
             Invalidate();
-            if (addSelection) AddSources(Selection.objects);
+            BindGroup();
+            RefreshAll();
+        }
+
+        private static ConversionGroup MakeTemporaryGroup()
+        {
+            var temporary = CreateInstance<ConversionGroup>();
+            temporary.name = "Temporary Group";
+            temporary.hideFlags = HideFlags.HideAndDontSave;
+            return temporary;
         }
 
         private void ReleaseTemporaryGroup()
@@ -332,30 +777,29 @@ namespace MineFarm.PixelToVoxel.Editor
             if (string.IsNullOrEmpty(path)) return;
             var created = CreateInstance<ConversionPreset>();
             created.settings = JsonUtility.FromJson<ConversionSettings>(JsonUtility.ToJson(group.settings));
-            AssetDatabase.CreateAsset(created, AssetDatabase.GenerateUniqueAssetPath(path)); preset = created;
-        }
-
-        private void DrawHistory()
-        {
-            showHistory = EditorGUILayout.Foldout(showHistory, $"Generation History ({group.history.Count})", true);
-            if (!showHistory) return;
-            EditorGUILayout.LabelField(group.lastSummary ?? "", EditorStyles.wordWrappedMiniLabel);
-            foreach (GenerationRecord record in group.history)
-            {
-                EditorGUILayout.ObjectField(record.prefab, typeof(GameObject), false);
-                EditorGUILayout.LabelField($"{record.generatedUtc} · {record.vertices:N0} vertices · {record.triangles:N0} triangles", EditorStyles.wordWrappedMiniLabel);
-            }
-            if (!IsTemporaryGroup && GUILayout.Button("Select Group Asset")) Selection.activeObject = group;
+            AssetDatabase.CreateAsset(created, AssetDatabase.GenerateUniqueAssetPath(path));
+            preset = created;
+            presetField?.SetValueWithoutNotify(preset);
+            RefreshState();
+            EditorGUIUtility.PingObject(preset);
         }
     }
 
     [CustomEditor(typeof(ConversionGroup))]
     public sealed class ConversionGroupInspector : UnityEditor.Editor
     {
-        public override void OnInspectorGUI()
+        public override VisualElement CreateInspectorGUI()
         {
-            if (GUILayout.Button("Open Pixel To Voxel")) PixelToVoxelWindow.Open((ConversionGroup)target);
-            DrawDefaultInspector();
+            var root = new VisualElement();
+            StyleSheet style = AssetDatabase.LoadAssetAtPath<StyleSheet>(PixelToVoxelWindow.StylePath);
+            if (style) root.styleSheets.Add(style);
+            root.AddToClassList("ptv-inspector");
+            var button = new Button(() => PixelToVoxelWindow.Open((ConversionGroup)target)) { text = "Open Pixel To Voxel" };
+            button.AddToClassList("ptv-button");
+            button.AddToClassList("ptv-button--primary");
+            root.Add(button);
+            InspectorElement.FillDefaultInspector(root, serializedObject, this);
+            return root;
         }
     }
 }
