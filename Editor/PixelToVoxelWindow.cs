@@ -23,6 +23,7 @@ namespace MineFarm.PixelToVoxel.Editor
         private List<SourceAnalysis> analyses;
         private readonly List<VisualElement> lockedAfterGeneration = new List<VisualElement>();
         private VoxelPreview preview;
+        private Texture2D windowIcon;
         private SerializedObject serializedGroup;
         private string notice, analyzedFingerprint, sourceFingerprint;
         private string previewLabel;
@@ -46,11 +47,17 @@ namespace MineFarm.PixelToVoxel.Editor
         private enum NoticeTone { Info, Success, Error }
 
         [MenuItem("Tools/Pixel To Voxel")]
-        public static void Open() => GetWindow<PixelToVoxelWindow>("Pixel To Voxel");
+        public static void Open()
+        {
+            var window = GetWindow<PixelToVoxelWindow>();
+            window.EnsureWindowTitle();
+            window.Show();
+        }
 
         public static void Open(ConversionGroup selected)
         {
-            var window = GetWindow<PixelToVoxelWindow>("Pixel To Voxel");
+            var window = GetWindow<PixelToVoxelWindow>();
+            window.EnsureWindowTitle();
             window.SetGroup(selected);
             window.Show();
         }
@@ -58,6 +65,7 @@ namespace MineFarm.PixelToVoxel.Editor
         private void OnEnable()
         {
             minSize = new Vector2(540, 600);
+            EnsureWindowTitle();
             EditorApplication.projectChanged += OnProjectChanged;
             Undo.undoRedoPerformed += OnUndoRedo;
             if (!group)
@@ -73,11 +81,14 @@ namespace MineFarm.PixelToVoxel.Editor
             Undo.undoRedoPerformed -= OnUndoRedo;
             preview?.Dispose();
             preview = null;
+            if (windowIcon) DestroyImmediate(windowIcon);
+            windowIcon = null;
             ReleaseTemporaryGroup();
         }
 
         public void CreateGUI()
         {
+            EnsureWindowTitle();
             rootVisualElement.Clear();
             VisualTreeAsset layout = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(LayoutPath);
             if (!layout)
@@ -93,6 +104,81 @@ namespace MineFarm.PixelToVoxel.Editor
             WireEvents();
             BindGroup();
             RefreshAll();
+        }
+
+        private void EnsureWindowTitle()
+        {
+            if (!windowIcon) windowIcon = CreateWindowIcon();
+            titleContent = new GUIContent("Pixel To Voxel", windowIcon, "Convert pixel art into voxel meshes and prefabs");
+        }
+
+        private static Texture2D CreateWindowIcon()
+        {
+            const int size = 32;
+            var pixels = Enumerable.Repeat(new Color32(0, 0, 0, 0), size * size).ToArray();
+            var top = new[] { new Vector2Int(16, 2), new Vector2Int(29, 9), new Vector2Int(16, 16), new Vector2Int(3, 9) };
+            var left = new[] { new Vector2Int(3, 9), new Vector2Int(16, 16), new Vector2Int(16, 30), new Vector2Int(3, 23) };
+            var right = new[] { new Vector2Int(16, 16), new Vector2Int(29, 9), new Vector2Int(29, 23), new Vector2Int(16, 30) };
+            FillPolygon(pixels, size, top, new Color32(102, 238, 203, 255));
+            FillPolygon(pixels, size, left, new Color32(41, 151, 127, 255));
+            FillPolygon(pixels, size, right, new Color32(66, 111, 184, 255));
+            var outline = new Color32(13, 29, 34, 255);
+            DrawPolygon(pixels, size, top, outline);
+            DrawPolygon(pixels, size, left, outline);
+            DrawPolygon(pixels, size, right, outline);
+            var icon = new Texture2D(size, size, TextureFormat.RGBA32, false, true)
+            {
+                name = "Pixel To Voxel Window Icon",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                anisoLevel = 0,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            icon.SetPixels32(pixels);
+            icon.Apply(false, true);
+            return icon;
+        }
+
+        private static void FillPolygon(Color32[] pixels, int size, Vector2Int[] points, Color32 color)
+        {
+            int minX = points.Min(point => point.x), maxX = points.Max(point => point.x);
+            int minY = points.Min(point => point.y), maxY = points.Max(point => point.y);
+            for (int y = minY; y <= maxY; y++)
+                for (int x = minX; x <= maxX; x++)
+                    if (Contains(points, x + 0.5f, y + 0.5f)) pixels[y * size + x] = color;
+        }
+
+        private static bool Contains(Vector2Int[] points, float x, float y)
+        {
+            bool inside = false;
+            for (int i = 0, previous = points.Length - 1; i < points.Length; previous = i++)
+            {
+                Vector2Int a = points[i], b = points[previous];
+                if ((a.y > y) != (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x)
+                    inside = !inside;
+            }
+            return inside;
+        }
+
+        private static void DrawPolygon(Color32[] pixels, int size, Vector2Int[] points, Color32 color)
+        {
+            for (int i = 0; i < points.Length; i++) DrawLine(pixels, size, points[i], points[(i + 1) % points.Length], color);
+        }
+
+        private static void DrawLine(Color32[] pixels, int size, Vector2Int from, Vector2Int to, Color32 color)
+        {
+            int x = from.x, y = from.y;
+            int dx = Math.Abs(to.x - x), stepX = x < to.x ? 1 : -1;
+            int dy = -Math.Abs(to.y - y), stepY = y < to.y ? 1 : -1;
+            int error = dx + dy;
+            while (true)
+            {
+                if (x >= 0 && y >= 0 && x < size && y < size) pixels[y * size + x] = color;
+                if (x == to.x && y == to.y) break;
+                int doubled = error * 2;
+                if (doubled >= dy) { error += dy; x += stepX; }
+                if (doubled <= dx) { error += dx; y += stepY; }
+            }
         }
 
         private void CacheElements()

@@ -169,6 +169,12 @@ namespace MineFarm.PixelToVoxel.Tests
                 Assert.That(groupField, Is.Not.Null);
                 Assert.That(groupField.value, Is.TypeOf<ConversionGroup>());
                 Assert.That(AssetDatabase.GetAssetPath(groupField.value), Is.Empty);
+                Assert.That(window.titleContent.text, Is.EqualTo("Pixel To Voxel"));
+                Assert.That(window.titleContent.image, Is.TypeOf<Texture2D>());
+                var icon = (Texture2D)window.titleContent.image;
+                Assert.That(icon.width, Is.EqualTo(32));
+                Assert.That(icon.height, Is.EqualTo(32));
+                Assert.That(icon.filterMode, Is.EqualTo(FilterMode.Point));
             }
             finally { Object.DestroyImmediate(window); }
         }
